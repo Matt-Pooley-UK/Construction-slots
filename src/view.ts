@@ -93,6 +93,10 @@ let activeRowCount = ROWS;
 const images: Partial<Record<SymbolId, HTMLImageElement>> = {};
 const BASE = import.meta.env.BASE_URL;
 
+let lastGrid: SymbolId[][] | null = null;
+let lastHatCells: HatBonusCell[] = [];
+let lastHighlights: { reel: number; row: number }[] = [];
+
 export function loadSymbolImages() {
   const files: Record<SymbolId, string> = {
     A: 'a.png',
@@ -110,10 +114,20 @@ export function loadSymbolImages() {
   };
   for (const [id, file] of Object.entries(files) as [SymbolId, string][]) {
     const img = new Image();
-    img.onload = () => {
+    const ready = () => {
+      if (img.naturalWidth <= 0) {
+        return;
+      }
       images[id] = img;
+      if (lastGrid) {
+        drawGrid(lastGrid, lastHatCells, lastHighlights);
+      }
     };
+    img.onload = ready;
     img.src = `${BASE}symbols/${file}`;
+    if (img.complete) {
+      ready();
+    }
   }
 }
 
@@ -143,6 +157,9 @@ export function drawGrid(
   hatCells: HatBonusCell[] = [],
   highlights: { reel: number; row: number }[] = []
 ) {
+  lastGrid = grid;
+  lastHatCells = hatCells;
+  lastHighlights = highlights;
   const rowCount = grid[0]?.length ?? ROWS;
   const { size, pad } = cellSize(rowCount);
   ctx.fillStyle = '#0b0b0b';
@@ -201,7 +218,7 @@ function drawSymbolTile(
 
   const img = images[symbol];
   if (img && img.complete && img.naturalWidth > 0) {
-    ctx.drawImage(img, x + 8, y + 8, size - 16, size - 16);
+    ctx.drawImage(img, x + 2, y + 2, size - 4, size - 4);
     return;
   }
 
