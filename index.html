@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Construction Slots</title>
-    <link rel="icon" href="./favicon.svg" />
-    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="icon" href="./public/favicon.svg" />
+    <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
     <header class="top">
@@ -87,6 +87,16 @@
       <pre id="sim-out"></pre>
     </section>
 
-    <script type="module" src="/src/main.ts"></script>
+    <script>
+      (function () {
+        var viteDev = Array.prototype.some.call(document.scripts, function (script) {
+          return script.src.indexOf('@vite/client') !== -1;
+        });
+        var moduleScript = document.createElement('script');
+        moduleScript.type = 'module';
+        moduleScript.src = viteDev ? './src/main.ts' : './game.js';
+        document.head.appendChild(moduleScript);
+      })();
+    </script>
   </body>
 </html>

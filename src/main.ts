@@ -1,3 +1,4 @@
+import css from './style.css?inline';
 import { SIMULATION_SPIN_COUNT, SIMULATION_SPIN_COUNT_LARGE } from './game/simulate';
 import {
   setBetMultiplier,
@@ -14,6 +15,10 @@ import {
   startAutoSpin,
   syncUi,
 } from './play';
+
+const style = document.createElement('style');
+style.textContent = css;
+document.head.appendChild(style);
 
 loadSymbolImages();
 initPlay();
