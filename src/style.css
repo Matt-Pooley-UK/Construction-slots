@@ -48,9 +48,10 @@ h1 {
 }
 
 #reels {
-  width: 100%;
+  width: 75%;
   height: auto;
   display: block;
+  margin-inline: auto;
   background: #111;
   border: 2px solid var(--line);
 }
