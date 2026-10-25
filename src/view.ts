@@ -1,0 +1,549 @@
+import type { SymbolId } from './game/symbols';
+import { isHatSymbol } from './game/symbols';
+import {
+  DENOMINATIONS,
+  HAT_CELL_HIGHLIGHT_COLORS,
+  REEL_COUNT,
+  ROWS,
+  getBetMultipliers,
+  paytable,
+  SCATTER_PAYS,
+  HAT_CELL_PRIZE_RANGES,
+  HAT_TRIGGER_COUNT,
+  type HatCellColor,
+  type JackpotId,
+} from './game/config';
+import type { HatBonusCell } from './game/hatBonus';
+import {
+  formatDenomination,
+  formatMoney,
+  formatWin,
+  snapToDenomination,
+} from './game/money';
+import { getBetAmount } from './game/money';
+import {
+  formatJackpotShortLabel,
+  getJackpotPayout,
+  JACKPOT_LABELS,
+} from './game/jackpots';
+import { getBetTierFromWager } from './game/bets';
+import { getJackpotMeterAmounts, isProgressiveJackpot } from './game/progressiveJackpots';
+import type { BonusWheelSection } from './game/bonusWheel';
+import { state } from './state/store';
+
+const SYMBOL_COLORS: Record<SymbolId, string> = {
+  A: '#f5c518',
+  K: '#5ec8f5',
+  Q: '#d07cff',
+  J: '#4adf8a',
+  PREM1: '#ef4444',
+  PREM2: '#22c55e',
+  PREM3: '#3b82f6',
+  WILD: '#fbbf24',
+  BONUS: '#f8fafc',
+  HAT: '#c084fc',
+  HAT2: '#a78bfa',
+  HAT3: '#818cf8',
+};
+
+const SYMBOL_TEXT: Record<SymbolId, string> = {
+  A: 'A',
+  K: 'K',
+  Q: 'Q',
+  J: 'J',
+  PREM1: 'P1',
+  PREM2: 'P2',
+  PREM3: 'P3',
+  WILD: 'WILD',
+  BONUS: 'BONUS',
+  HAT: 'HAT',
+  HAT2: 'HAT2',
+  HAT3: 'HAT3',
+};
+
+const METER_ORDER: JackpotId[] = ['grand', 'major', 'minor', 'mini'];
+
+const canvas = document.querySelector('#reels') as HTMLCanvasElement;
+const ctx = canvas.getContext('2d')!;
+const wheelCanvas = document.querySelector('#wheel-canvas') as HTMLCanvasElement;
+const wheelCtx = wheelCanvas.getContext('2d')!;
+
+const BASE_CANVAS_WIDTH = 640;
+const BASE_CANVAS_HEIGHT = 410;
+const TALL_CANVAS_HEIGHT = 800;
+
+let activeRowCount = ROWS;
+
+const images: Partial<Record<SymbolId, HTMLImageElement>> = {};
+const BASE = import.meta.env.BASE_URL;
+
+export function loadSymbolImages() {
+  const files: Record<SymbolId, string> = {
+    A: 'a.png',
+    K: 'k.png',
+    Q: 'q.png',
+    J: 'j.png',
+    PREM1: 'prem1.png',
+    PREM2: 'prem2.png',
+    PREM3: 'prem3.png',
+    WILD: 'wild.png',
+    BONUS: 'bonus.png',
+    HAT: 'hat.png',
+    HAT2: 'hat2.png',
+    HAT3: 'hat3.png',
+  };
+  for (const [id, file] of Object.entries(files) as [SymbolId, string][]) {
+    const img = new Image();
+    img.onload = () => {
+      images[id] = img;
+    };
+    img.src = `${BASE}symbols/${file}`;
+  }
+}
+
+function hexColor(value: number): string {
+  return `#${value.toString(16).padStart(6, '0')}`;
+}
+
+export function setActiveRows(rowCount: number) {
+  activeRowCount = rowCount;
+  canvas.width = BASE_CANVAS_WIDTH;
+  canvas.height = rowCount > ROWS ? TALL_CANVAS_HEIGHT : BASE_CANVAS_HEIGHT;
+}
+
+export function getActiveRows() {
+  return activeRowCount;
+}
+
+export function cellSize(rowCount: number) {
+  const pad = 10;
+  const width = (canvas.width - pad * 2) / REEL_COUNT;
+  const height = (canvas.height - pad * 2) / rowCount;
+  return { size: Math.min(width, height), pad };
+}
+
+export function drawGrid(
+  grid: SymbolId[][],
+  hatCells: HatBonusCell[] = [],
+  highlights: { reel: number; row: number }[] = []
+) {
+  const rowCount = grid[0]?.length ?? ROWS;
+  const { size, pad } = cellSize(rowCount);
+  ctx.fillStyle = '#0b0b0b';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const hats = new Map(
+    hatCells.map((cell) => [`${cell.reel}:${cell.row}`, cell])
+  );
+  const wins = new Set(highlights.map((cell) => `${cell.reel}:${cell.row}`));
+
+  for (let reel = 0; reel < REEL_COUNT; reel++) {
+    for (let row = 0; row < rowCount; row++) {
+      const x = pad + reel * size;
+      const y = pad + row * size;
+      const symbol = grid[reel]?.[row] ?? 'A';
+      const hat = hats.get(`${reel}:${row}`);
+      ctx.fillStyle = hat
+        ? hexColor(HAT_CELL_HIGHLIGHT_COLORS[hat.color as HatCellColor])
+        : SYMBOL_COLORS[symbol];
+      ctx.fillRect(x + 2, y + 2, size - 4, size - 4);
+
+      const img = images[symbol];
+      if (img) {
+        ctx.drawImage(img, x + 8, y + 8, size - 16, size - 16);
+      } else {
+        ctx.fillStyle = '#111';
+        ctx.font = `bold ${Math.max(12, size * 0.22)}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(SYMBOL_TEXT[symbol], x + size / 2, y + size / 2);
+      }
+
+      if (hat?.prize !== null && hat?.prize !== undefined) {
+        ctx.fillStyle = '#111';
+        ctx.font = `bold ${Math.max(11, size * 0.16)}px system-ui`;
+        const label = hat.jackpot
+          ? formatJackpotShortLabel(hat.jackpot, getBetTierFromWager(state.denomination, state.bet), {
+              uppercase: true,
+            })
+          : String(Math.round(hat.prize / state.denomination));
+        ctx.fillText(label, x + size / 2, y + size * 0.78);
+      }
+
+      if (wins.has(`${reel}:${row}`)) {
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x + 3, y + 3, size - 6, size - 6);
+      }
+    }
+  }
+}
+
+export function animateReels(
+  from: SymbolId[][],
+  to: SymbolId[][],
+  onStop: (reel: number) => void
+): Promise<void> {
+  const rowCount = to[0]?.length ?? ROWS;
+  const duration = 1400;
+  const stagger = 250;
+  const started = performance.now();
+
+  return new Promise((resolve) => {
+    const stopped = new Set<number>();
+
+    const tick = (now: number) => {
+      ctx.fillStyle = '#0b0b0b';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const { size, pad } = cellSize(rowCount);
+
+      for (let reel = 0; reel < REEL_COUNT; reel++) {
+        const local = now - started - reel * stagger;
+        const done = local >= duration;
+        if (done && !stopped.has(reel)) {
+          stopped.add(reel);
+          onStop(reel);
+        }
+        const progress = Math.min(1, Math.max(0, local / duration));
+        const eased = 1 - (1 - progress) ** 3;
+        const shift = (1 - eased) * size * 8;
+
+        for (let row = -2; row < rowCount + 2; row++) {
+          const symbol =
+            done || progress > 0.92
+              ? to[reel]?.[Math.max(0, Math.min(rowCount - 1, row))]
+              : from[reel]?.[((row % rowCount) + rowCount) % rowCount] ??
+                to[reel]?.[0] ??
+                'A';
+          const x = pad + reel * size;
+          const y = pad + row * size + (done ? 0 : shift % size);
+          if (!symbol || row < 0 || row >= rowCount) {
+            continue;
+          }
+          ctx.fillStyle = SYMBOL_COLORS[symbol];
+          ctx.fillRect(x + 2, y + 2, size - 4, size - 4);
+          ctx.fillStyle = '#111';
+          ctx.font = `bold ${Math.max(12, size * 0.22)}px system-ui`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(SYMBOL_TEXT[symbol], x + size / 2, y + size / 2);
+        }
+      }
+
+      if (stopped.size === REEL_COUNT) {
+        drawGrid(to);
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+
+    requestAnimationFrame(tick);
+  });
+}
+
+export function setStatus(text: string) {
+  const node = document.querySelector('#status');
+  if (node) {
+    node.textContent = text;
+  }
+}
+
+export function updateHud() {
+  const meters = getJackpotMeterAmounts(
+    state.bet,
+    state.progressiveJackpots,
+    state.denomination
+  );
+  const box = document.querySelector('#meters');
+  if (box) {
+    box.innerHTML = METER_ORDER.map(
+      (id) =>
+        `<div class="meter"><span>${JACKPOT_LABELS[id].toUpperCase()}</span><span>${formatMoney(meters[id])}</span></div>`
+    ).join('');
+  }
+
+  const coin = document.querySelector('#coin') as HTMLSelectElement;
+  const bet = document.querySelector('#bet') as HTMLSelectElement;
+  if (coin && coin.options.length === 0) {
+    for (const value of DENOMINATIONS) {
+      const option = document.createElement('option');
+      option.value = String(value);
+      option.textContent = formatDenomination(value);
+      coin.append(option);
+    }
+  }
+  if (coin) {
+    coin.value = String(state.denomination);
+  }
+  if (bet) {
+    const multipliers = getBetMultipliers(state.denomination);
+    bet.innerHTML = '';
+    for (const multiplier of multipliers) {
+      const option = document.createElement('option');
+      option.value = String(multiplier);
+      option.textContent = formatMoney(
+        getBetAmount(state.denomination, multiplier)
+      );
+      bet.append(option);
+    }
+    bet.value = String(state.betMultiplier);
+  }
+
+  const balance = document.querySelector('#balance');
+  if (balance) {
+    balance.textContent = `Balance: ${formatMoney(state.balance)}`;
+  }
+
+  const session = document.querySelector('#session');
+  if (session) {
+    const parts: string[] = [];
+    if (state.hatBonus) {
+      parts.push(
+        `${state.hatBonus.mode ?? 'hat'} · ${state.hatBonus.spinsRemaining} spins`
+      );
+    }
+    if (state.freeSpinsRemaining > 0) {
+      parts.push(`Free spins: ${state.freeSpinsRemaining}`);
+    }
+    if (state.freeSpinSession.active) {
+      parts.push(`Won: ${formatMoney(state.freeSpinSession.totalWon)}`);
+    }
+    session.textContent = parts.join(' · ');
+  }
+}
+
+export function setSpinLabel(label: string) {
+  const button = document.querySelector('#spin') as HTMLButtonElement;
+  if (button) {
+    button.textContent = label;
+  }
+}
+
+export function setControlsLocked(locked: boolean) {
+  for (const id of ['spin', 'auto', 'coin', 'bet', 'auto-count', 'paytable-btn']) {
+    const node = document.querySelector(`#${id}`) as
+      | HTMLButtonElement
+      | HTMLSelectElement
+      | null;
+    if (node) {
+      node.disabled = locked;
+    }
+  }
+  const featureLock = Boolean(
+    state.hatBonus || state.freeSpinsRemaining > 0
+  );
+  const coin = document.querySelector('#coin') as HTMLSelectElement | null;
+  const bet = document.querySelector('#bet') as HTMLSelectElement | null;
+  if (coin) {
+    coin.disabled = locked || featureLock;
+  }
+  if (bet) {
+    bet.disabled = locked || featureLock;
+  }
+}
+
+export function showBanner(
+  title: string,
+  amount: string,
+  persist = false
+) {
+  const banner = document.querySelector('#banner')!;
+  document.querySelector('#banner-title')!.textContent = title;
+  document.querySelector('#banner-amount')!.textContent = amount;
+  banner.classList.remove('hidden');
+  if (!persist) {
+    window.setTimeout(() => banner.classList.add('hidden'), 2800);
+  }
+}
+
+export function hideBanner() {
+  document.querySelector('#banner')?.classList.add('hidden');
+}
+
+export function showWheel(title: string, hint: string) {
+  document.querySelector('#wheel-title')!.textContent = title;
+  document.querySelector('#wheel-hint')!.textContent = hint;
+  document.querySelector('#wheel')!.classList.remove('hidden');
+}
+
+export function hideWheel() {
+  document.querySelector('#wheel')!.classList.add('hidden');
+}
+
+export function animateWheel(
+  sections: BonusWheelSection[],
+  targetDeg: number,
+  durationMs = 3600
+): Promise<void> {
+  const started = performance.now();
+
+  return new Promise((resolve) => {
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - started) / durationMs);
+      const eased = 1 - (1 - progress) ** 3;
+      drawWheel(sections, targetDeg * eased);
+      if (progress < 1) {
+        requestAnimationFrame(tick);
+        return;
+      }
+      drawWheel(sections, targetDeg);
+      resolve();
+    };
+
+    requestAnimationFrame(tick);
+  });
+}
+
+export function drawWheel(sections: BonusWheelSection[], rotationDeg: number) {
+  const { width, height } = wheelCanvas;
+  wheelCtx.clearRect(0, 0, width, height);
+  const cx = width / 2;
+  const cy = height - 8;
+  const radius = Math.min(width / 2 - 8, height - 16);
+  const slice = (Math.PI * 2) / sections.length;
+  const start = ((rotationDeg - 90) * Math.PI) / 180;
+
+  wheelCtx.save();
+  wheelCtx.beginPath();
+  wheelCtx.rect(0, 0, width, cy);
+  wheelCtx.clip();
+
+  sections.forEach((section, index) => {
+    wheelCtx.beginPath();
+    wheelCtx.moveTo(cx, cy);
+    wheelCtx.arc(cx, cy, radius, start + index * slice, start + (index + 1) * slice);
+    wheelCtx.closePath();
+    wheelCtx.fillStyle = section.color;
+    wheelCtx.fill();
+    wheelCtx.strokeStyle = '#111';
+    wheelCtx.stroke();
+
+    const mid = start + index * slice + slice / 2;
+    wheelCtx.save();
+    wheelCtx.translate(cx + Math.cos(mid) * radius * 0.68, cy + Math.sin(mid) * radius * 0.68);
+    wheelCtx.rotate(mid + Math.PI / 2);
+    wheelCtx.fillStyle = '#fff';
+    wheelCtx.font = 'bold 11px system-ui';
+    wheelCtx.textAlign = 'center';
+    wheelCtx.fillText(section.label, 0, 0);
+    wheelCtx.restore();
+  });
+  wheelCtx.restore();
+
+  wheelCtx.fillStyle = '#e0a106';
+  wheelCtx.beginPath();
+  wheelCtx.moveTo(cx - 10, 4);
+  wheelCtx.lineTo(cx + 10, 4);
+  wheelCtx.lineTo(cx, 22);
+  wheelCtx.fill();
+}
+
+export function showPaytable() {
+  const body = document.querySelector('#paytable-body')!;
+  const { bet, denomination, progressiveJackpots } = state;
+  const symbols: SymbolId[] = [
+    'PREM3',
+    'PREM2',
+    'PREM1',
+    'WILD',
+    'A',
+    'K',
+    'Q',
+    'J',
+  ];
+  const lineRows = symbols
+    .map((id) => {
+      const cells = [3, 4, 5]
+        .map((count) => {
+          const raw = (paytable[id][count - 1] || 0) * bet * 0.5;
+          return snapToDenomination(raw, denomination);
+        })
+        .map((value) => (value > 0 ? formatWin(value, denomination) : '—'));
+      return `<tr><td>${id}</td><td>${cells[0]}</td><td>${cells[1]}</td><td>${cells[2]}</td></tr>`;
+    })
+    .join('');
+
+  const scatter = [3, 4, 5]
+    .map(
+      (count) =>
+        `<tr><td>${count}+</td><td>${formatWin(
+          snapToDenomination((SCATTER_PAYS[count] || 0) * bet, denomination),
+          denomination
+        )}</td></tr>`
+    )
+    .join('');
+
+  const tier = getBetTierFromWager(denomination, bet);
+  const jackpots = (['grand', 'major', 'minor', 'mini'] as JackpotId[])
+    .map((id) => {
+      const payout = getJackpotPayout(id, bet, 1, progressiveJackpots, denomination);
+      return `<tr><td>${formatJackpotShortLabel(id, tier)}${
+        isProgressiveJackpot(id) ? ' (progressive)' : ''
+      }</td><td>${formatWin(payout, denomination)}</td></tr>`;
+    })
+    .join('');
+
+  body.innerHTML = `
+    <p>Line hits pay 50% of the paytable × bet. Scatter, hat prizes, and jackpots are unscaled.</p>
+    <table><thead><tr><th>Symbol</th><th>3</th><th>4</th><th>5</th></tr></thead><tbody>${lineRows}</tbody></table>
+    <h3>BONUS scatter</h3>
+    <table><tbody>${scatter}</tbody></table>
+    <h3>Hat bonus</h3>
+    <p>${HAT_TRIGGER_COUNT}+ HAT starts 6 free spins. End prizes ${formatWin(
+      snapToDenomination(HAT_CELL_PRIZE_RANGES.yellow[0] * bet, denomination),
+      denomination
+    )}–${formatWin(
+      snapToDenomination(HAT_CELL_PRIZE_RANGES.blue[1] * bet, denomination),
+      denomination
+    )}. Cell totals show coin credits.</p>
+    <h3>Jackpots</h3>
+    <table><tbody>${jackpots}</tbody></table>
+  `;
+  document.querySelector('#paytable')!.classList.remove('hidden');
+}
+
+export function hidePaytable() {
+  document.querySelector('#paytable')!.classList.add('hidden');
+}
+
+export function setupTestMode(
+  sections: { id: string; label: string }[]
+) {
+  const panel = document.querySelector('#test')!;
+  const enabled = new URLSearchParams(window.location.search).has('test');
+  panel.classList.toggle('hidden', !enabled);
+  const select = document.querySelector('#force-wheel') as HTMLSelectElement;
+  select.innerHTML = `<option value="spin-wheel">Spin Wheel</option>`;
+  for (const section of sections) {
+    const option = document.createElement('option');
+    option.value = section.id;
+    option.textContent = section.label;
+    select.append(option);
+  }
+}
+
+export function getWinBannerTitle(payout: number, bet: number): string {
+  const multiple = bet > 0 ? payout / bet : 0;
+  if (multiple >= 40) {
+    return 'MEGA WIN';
+  }
+  if (multiple >= 15) {
+    return 'BIG WIN';
+  }
+  return 'WIN';
+}
+
+export function isTestMode() {
+  return new URLSearchParams(window.location.search).has('test');
+}
+
+export function columnHas(
+  grid: SymbolId[][],
+  reel: number,
+  kind: 'bonus' | 'hat'
+) {
+  return (grid[reel] ?? []).some((symbol) =>
+    kind === 'bonus' ? symbol === 'BONUS' : isHatSymbol(symbol)
+  );
+}

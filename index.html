@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Construction Slots</title>
+    <link rel="icon" href="./favicon.svg" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <h1>Construction Slots</h1>
+        <p class="disclaimer">
+          Free entertainment game. No real money. Wins are credits only and
+          have no cash value.
+        </p>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="stage">
+        <p id="status" class="status" aria-live="polite"></p>
+        <canvas id="reels" width="640" height="410"></canvas>
+        <div id="banner" class="banner hidden">
+          <div id="banner-title">WIN</div>
+          <div id="banner-amount"></div>
+        </div>
+      </section>
+
+      <aside class="hud">
+        <div id="meters" class="meters"></div>
+        <button id="spin" class="spin" type="button">SPIN</button>
+        <div class="auto-row">
+          <select id="auto-count" aria-label="Auto spin count">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select>
+          <button id="auto" type="button">AUTO SPIN</button>
+        </div>
+        <button id="paytable-btn" type="button">PAYTABLE</button>
+        <div class="bets">
+          <label>Coin
+            <select id="coin"></select>
+          </label>
+          <label>Bet
+            <select id="bet"></select>
+          </label>
+        </div>
+        <p id="balance" class="balance"></p>
+        <p id="session" class="session"></p>
+      </aside>
+    </main>
+
+    <div id="wheel" class="overlay hidden">
+      <div class="overlay-card">
+        <h2 id="wheel-title">Bonus Wheel</h2>
+        <p id="wheel-hint">Tap spin</p>
+        <canvas id="wheel-canvas" width="420" height="260"></canvas>
+        <button id="wheel-spin" type="button">Spin the Wheel</button>
+      </div>
+    </div>
+
+    <div id="paytable" class="overlay hidden">
+      <div class="overlay-card paytable-card">
+        <div class="paytable-head">
+          <h2>Paytable</h2>
+          <button id="paytable-close" type="button">Close</button>
+        </div>
+        <div id="paytable-body"></div>
+      </div>
+    </div>
+
+    <section id="test" class="test hidden">
+      <h2>Test Mode</h2>
+      <p>Query flag <code>?test=1</code> is on. Not shown to normal visitors.</p>
+      <label>Force wheel
+        <select id="force-wheel"></select>
+      </label>
+      <div class="test-row">
+        <button id="force-bonus" type="button">Force Bonus Win</button>
+        <button id="force-hat" type="button">Force Hat Win</button>
+        <button id="sim-10k" type="button">Simulate 10,000</button>
+        <button id="sim-1m" type="button">Simulate 1,000,000</button>
+      </div>
+      <pre id="sim-out"></pre>
+    </section>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

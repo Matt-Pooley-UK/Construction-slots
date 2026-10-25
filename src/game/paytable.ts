@@ -1,0 +1,1 @@
+export { paytable } from './config';
