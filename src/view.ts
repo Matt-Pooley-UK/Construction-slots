@@ -1,6 +1,13 @@
 import type { SymbolId } from './game/symbols';
 import { isHatSymbol } from './game/symbols';
 import {
+  getForwardScrollSymbols,
+  getReelSet,
+  getStripSlice,
+  getVisibleWindowStartIndex,
+} from './game/reels';
+import type { SpinResult } from './game/spin';
+import {
   DENOMINATIONS,
   HAT_CELL_HIGHLIGHT_COLORS,
   REEL_COUNT,
@@ -62,6 +69,15 @@ const SYMBOL_TEXT: Record<SymbolId, string> = {
 };
 
 const METER_ORDER: JackpotId[] = ['grand', 'major', 'minor', 'mini'];
+
+/** One extra trip around the strip so every spin passes new symbols. */
+const SPIN_ROTATIONS = 1;
+/** Steady reel speed during the cruise, in cells per second. */
+const CRUISE_CELLS_PER_SEC = 180;
+/** Symbols eased into the window at the end of each reel. */
+const SETTLE_CELLS = 12;
+const SETTLE_MS = 450;
+const REEL_STAGGER_MS = 220;
 
 const canvas = document.querySelector('#reels') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
@@ -143,21 +159,15 @@ export function drawGrid(
       const y = pad + row * size;
       const symbol = grid[reel]?.[row] ?? 'A';
       const hat = hats.get(`${reel}:${row}`);
-      ctx.fillStyle = hat
-        ? hexColor(HAT_CELL_HIGHLIGHT_COLORS[hat.color as HatCellColor])
-        : SYMBOL_COLORS[symbol];
-      ctx.fillRect(x + 2, y + 2, size - 4, size - 4);
-
-      const img = images[symbol];
-      if (img) {
-        ctx.drawImage(img, x + 8, y + 8, size - 16, size - 16);
-      } else {
-        ctx.fillStyle = '#111';
-        ctx.font = `bold ${Math.max(12, size * 0.22)}px system-ui`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(SYMBOL_TEXT[symbol], x + size / 2, y + size / 2);
-      }
+      drawSymbolTile(
+        symbol,
+        x,
+        y,
+        size,
+        hat
+          ? hexColor(HAT_CELL_HIGHLIGHT_COLORS[hat.color as HatCellColor])
+          : undefined
+      );
 
       if (hat?.prize !== null && hat?.prize !== undefined) {
         ctx.fillStyle = '#111';
@@ -179,14 +189,89 @@ export function drawGrid(
   }
 }
 
+function drawSymbolTile(
+  symbol: SymbolId,
+  x: number,
+  y: number,
+  size: number,
+  fill = SYMBOL_COLORS[symbol]
+) {
+  ctx.fillStyle = fill;
+  ctx.fillRect(x + 2, y + 2, size - 4, size - 4);
+
+  const img = images[symbol];
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, x + 8, y + 8, size - 16, size - 16);
+    return;
+  }
+
+  ctx.fillStyle = '#111';
+  ctx.font = `bold ${Math.max(12, size * 0.22)}px system-ui`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(SYMBOL_TEXT[symbol], x + size / 2, y + size / 2);
+}
+
+function reelScrollOffset(
+  localMs: number,
+  cruiseCells: number,
+  cruiseMs: number,
+  settleCells: number
+) {
+  if (localMs <= 0) {
+    return 0;
+  }
+  if (localMs < cruiseMs) {
+    return (localMs / cruiseMs) * cruiseCells;
+  }
+  const t = Math.min(1, (localMs - cruiseMs) / SETTLE_MS);
+  const eased = 1 - (1 - t) ** 3;
+  return cruiseCells + eased * settleCells;
+}
+
 export function animateReels(
-  from: SymbolId[][],
-  to: SymbolId[][],
+  options: {
+    fromGrid: SymbolId[][];
+    fromStops: number[];
+    result: SpinResult;
+  },
   onStop: (reel: number) => void
 ): Promise<void> {
-  const rowCount = to[0]?.length ?? ROWS;
-  const duration = 1400;
-  const stagger = 250;
+  const { fromGrid, fromStops, result } = options;
+  const rowCount = result.grid[0]?.length ?? ROWS;
+  setActiveRows(rowCount);
+  const reelSet = getReelSet(
+    result.isFreeSpin,
+    result.isHatBonus,
+    result.isUltraHat,
+    result.isBuzzSaw,
+    result.isSuperHat,
+    result.isSuperBuzzSaw,
+    result.isSuperPowerSaw
+  );
+  const plans = result.stops.map((toStop, reel) => {
+    const fromStop = fromStops[reel] ?? toStop;
+    const scrollSymbols = getForwardScrollSymbols(
+      fromStop,
+      toStop,
+      SPIN_ROTATIONS
+    );
+    const strip = getStripSlice(
+      reelSet[reel],
+      getVisibleWindowStartIndex(fromStop, rowCount),
+      rowCount + scrollSymbols
+    );
+    const visible = fromGrid[reel] ?? [];
+    if (visible.length === rowCount) {
+      for (let row = 0; row < rowCount; row++) {
+        strip[row] = visible[row];
+      }
+    }
+    const settleCells = Math.min(SETTLE_CELLS, scrollSymbols);
+    const cruiseCells = scrollSymbols - settleCells;
+    const cruiseMs = (cruiseCells / CRUISE_CELLS_PER_SEC) * 1000;
+    return { strip, scrollSymbols, settleCells, cruiseCells, cruiseMs };
+  });
   const started = performance.now();
 
   return new Promise((resolve) => {
@@ -196,42 +281,47 @@ export function animateReels(
       ctx.fillStyle = '#0b0b0b';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       const { size, pad } = cellSize(rowCount);
+      const windowHeight = rowCount * size;
 
       for (let reel = 0; reel < REEL_COUNT; reel++) {
-        const local = now - started - reel * stagger;
-        const done = local >= duration;
+        const plan = plans[reel];
+        const local = now - started - reel * REEL_STAGGER_MS;
+        const done = local >= plan.cruiseMs + SETTLE_MS;
         if (done && !stopped.has(reel)) {
           stopped.add(reel);
           onStop(reel);
         }
-        const progress = Math.min(1, Math.max(0, local / duration));
-        const eased = 1 - (1 - progress) ** 3;
-        const shift = (1 - eased) * size * 8;
+        const offset = done
+          ? plan.scrollSymbols
+          : reelScrollOffset(
+              local,
+              plan.cruiseCells,
+              plan.cruiseMs,
+              plan.settleCells
+            );
+        const x = pad + reel * size;
+        const first = Math.max(0, Math.floor(offset) - 1);
+        const last = Math.min(
+          plan.strip.length - 1,
+          Math.ceil(offset) + rowCount
+        );
 
-        for (let row = -2; row < rowCount + 2; row++) {
-          const symbol =
-            done || progress > 0.92
-              ? to[reel]?.[Math.max(0, Math.min(rowCount - 1, row))]
-              : from[reel]?.[((row % rowCount) + rowCount) % rowCount] ??
-                to[reel]?.[0] ??
-                'A';
-          const x = pad + reel * size;
-          const y = pad + row * size + (done ? 0 : shift % size);
-          if (!symbol || row < 0 || row >= rowCount) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, pad, size, windowHeight);
+        ctx.clip();
+        for (let index = first; index <= last; index++) {
+          const symbol = plan.strip[index];
+          if (!symbol) {
             continue;
           }
-          ctx.fillStyle = SYMBOL_COLORS[symbol];
-          ctx.fillRect(x + 2, y + 2, size - 4, size - 4);
-          ctx.fillStyle = '#111';
-          ctx.font = `bold ${Math.max(12, size * 0.22)}px system-ui`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(SYMBOL_TEXT[symbol], x + size / 2, y + size / 2);
+          drawSymbolTile(symbol, x, pad + (index - offset) * size, size);
         }
+        ctx.restore();
       }
 
       if (stopped.size === REEL_COUNT) {
-        drawGrid(to);
+        drawGrid(result.grid);
         resolve();
         return;
       }

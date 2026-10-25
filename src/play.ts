@@ -108,7 +108,9 @@ const auto = { active: false, remaining: 0, total: 0 };
 let revealing = false;
 let wheelOpen = false;
 let hatBonusSessionCompleted = false;
-let displayGrid: SymbolId[][] = spinReels().grid;
+const openingSpin = spinReels();
+let displayGrid: SymbolId[][] = openingSpin.grid;
+let displayStops: number[] = openingSpin.stops;
 let forcedSpin: ForcedSpinKind | null = null;
 let forcedWheelSectionId: string | null = null;
 
@@ -316,7 +318,9 @@ function restoreBaseReelLayout() {
     setActiveRows(ROWS);
     displayGrid = displayGrid.map((column) => column.slice(0, ROWS));
     if ((displayGrid[0]?.length ?? 0) < ROWS) {
-      displayGrid = spinReels().grid;
+      const fresh = spinReels();
+      displayGrid = fresh.grid;
+      displayStops = fresh.stops;
     }
   }
 }
@@ -764,12 +768,16 @@ export async function runSpin() {
     const currentDenomination = state.denomination;
     const currentBetTier = getBetTier(currentDenomination, state.betMultiplier);
 
-    await animateReels(displayGrid, result.grid, (reel) => {
-      playReelStop(
-        columnHas(result.grid, reel, 'bonus'),
-        columnHas(result.grid, reel, 'hat')
-      );
-    });
+    await animateReels(
+      { fromGrid: displayGrid, fromStops: displayStops, result },
+      (reel) => {
+        playReelStop(
+          columnHas(result.grid, reel, 'bonus'),
+          columnHas(result.grid, reel, 'hat')
+        );
+      }
+    );
+    displayStops = result.stops;
     displayGrid = result.grid;
 
     const evaluation = evaluateSpin(
@@ -1217,13 +1225,15 @@ export function initPlay() {
 
   if (state.hatBonus && isTallBonusMode(state.hatBonus.mode)) {
     setActiveRows(SUPER_HAT_ROWS);
-    displayGrid = spinReels({
+    const fresh = spinReels({
       isSuperHat: state.hatBonus.mode === 'superHat',
       isSuperBuzzSaw: state.hatBonus.mode === 'superBuzzSaw',
       isSuperPowerSaw: state.hatBonus.mode === 'superPowerSaw',
       isFreeSpin: true,
       rowCount: SUPER_HAT_ROWS,
-    }).grid;
+    });
+    displayGrid = fresh.grid;
+    displayStops = fresh.stops;
     setStatus(
       `${describeHatBonusMode(state.hatBonus.mode)} — ${state.hatBonus.spinsRemaining} free spins remaining`
     );
