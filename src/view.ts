@@ -9,7 +9,6 @@ import {
 import type { SpinResult } from './game/spin';
 import {
   DENOMINATIONS,
-  HAT_CELL_HIGHLIGHT_COLORS,
   REEL_COUNT,
   ROWS,
   getBetMultipliers,
@@ -131,8 +130,91 @@ export function loadSymbolImages() {
   }
 }
 
-function hexColor(value: number): string {
-  return `#${value.toString(16).padStart(6, '0')}`;
+const HAT_OUTLINE_RED = '#cf142b';
+const HAT_OUTLINE_WHITE = '#ffffff';
+const HAT_OUTLINE_BLUE = '#012169';
+
+function drawHatCellOutline(color: HatCellColor, x: number, y: number, size: number) {
+  const margin = 2;
+  const ox = x + margin;
+  const oy = y + margin;
+  const outer = size - margin * 2;
+  const band = Math.max(5, size * 0.078);
+
+  ctx.save();
+  ctx.lineJoin = 'miter';
+  if (color === 'yellow') {
+    strokeHatFrame(ox, oy, outer, band, HAT_OUTLINE_WHITE);
+  } else if (color === 'green') {
+    strokeHatFrame(ox, oy, outer, band, HAT_OUTLINE_RED);
+  } else {
+    // Red, then blue, share the diagonal red-white-blue step. Blue runs the
+    // other way so the last upgrade still reads on the square.
+    drawSteppedDiagonalFrame(ox, oy, outer, band, color === 'blue');
+  }
+  ctx.restore();
+}
+
+function strokeHatFrame(
+  x: number,
+  y: number,
+  size: number,
+  band: number,
+  color: string
+) {
+  ctx.strokeStyle = '#1a120c';
+  ctx.lineWidth = band + 2;
+  ctx.strokeRect(
+    x + (band + 2) / 2,
+    y + (band + 2) / 2,
+    size - (band + 2),
+    size - (band + 2)
+  );
+  ctx.strokeStyle = color;
+  ctx.lineWidth = band;
+  ctx.strokeRect(x + band / 2, y + band / 2, size - band, size - band);
+}
+
+function drawSteppedDiagonalFrame(
+  x: number,
+  y: number,
+  size: number,
+  band: number,
+  flip: boolean
+) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, size, size);
+  ctx.rect(x + band, y + band, size - band * 2, size - band * 2);
+  ctx.clip('evenodd');
+
+  const stripe = Math.max(4, band * 0.95);
+  const colors = [HAT_OUTLINE_RED, HAT_OUTLINE_WHITE, HAT_OUTLINE_BLUE];
+  const span = size * 3;
+  ctx.translate(x, y);
+  if (flip) {
+    ctx.translate(size, 0);
+    ctx.scale(-1, 1);
+  }
+  for (let start = -span; start < span; start += stripe * colors.length) {
+    for (let index = 0; index < colors.length; index++) {
+      const offset = start + index * stripe;
+      ctx.fillStyle = colors[index];
+      ctx.beginPath();
+      ctx.moveTo(offset, 0);
+      ctx.lineTo(offset + stripe, 0);
+      ctx.lineTo(offset + stripe - size, size);
+      ctx.lineTo(offset - size, size);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  ctx.strokeStyle = '#1a120c';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x + 0.75, y + 0.75, size - 1.5, size - 1.5);
+  ctx.strokeRect(x + band, y + band, size - band * 2, size - band * 2);
 }
 
 export function setActiveRows(rowCount: number) {
@@ -176,15 +258,10 @@ export function drawGrid(
       const y = pad + row * size;
       const symbol = grid[reel]?.[row] ?? 'A';
       const hat = hats.get(`${reel}:${row}`);
-      drawSymbolTile(
-        symbol,
-        x,
-        y,
-        size,
-        hat
-          ? hexColor(HAT_CELL_HIGHLIGHT_COLORS[hat.color as HatCellColor])
-          : undefined
-      );
+      drawSymbolTile(symbol, x, y, size);
+      if (hat) {
+        drawHatCellOutline(hat.color, x, y, size);
+      }
 
       if (hat?.prize !== null && hat?.prize !== undefined) {
         ctx.fillStyle = '#111';

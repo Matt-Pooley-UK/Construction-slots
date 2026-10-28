@@ -146,11 +146,12 @@ export const HAT_CELL_PRIZE_RANGES: Record<
   blue: [12, 20],
 };
 
+/** Swatches for the hat-cell tiers. The reels draw white, red, then a diagonal step. */
 export const HAT_CELL_HIGHLIGHT_COLORS: Record<HatCellColor, number> = {
-  yellow: 0xfacc15,
-  green: 0x4ade80,
-  red: 0xf87171,
-  blue: 0x60a5fa,
+  yellow: 0xffffff,
+  green: 0xcf142b,
+  red: 0xcf142b,
+  blue: 0x012169,
 };
 
 /**
