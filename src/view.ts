@@ -105,11 +105,11 @@ export function loadSymbolImages() {
     PREM1: 'prem1.png',
     PREM2: 'prem2.png',
     PREM3: 'prem3.png',
-    WILD: 'wild.png',
+    WILD: 'mini.png',
     BONUS: 'bonus.png',
     HAT: 'hat.png',
-    HAT2: 'hat2.png',
-    HAT3: 'hat3.png',
+    HAT2: 'hat.png',
+    HAT3: 'hat.png',
   };
   for (const [id, file] of Object.entries(files) as [SymbolId, string][]) {
     const img = new Image();
@@ -258,20 +258,32 @@ export function drawGrid(
       const y = pad + row * size;
       const symbol = grid[reel]?.[row] ?? 'A';
       const hat = hats.get(`${reel}:${row}`);
-      drawSymbolTile(symbol, x, y, size);
+      const prize = hat?.prize;
+      const revealed = prize !== null && prize !== undefined;
+      if (revealed) {
+        ctx.fillStyle = '#241910';
+        ctx.fillRect(x + 2, y + 2, size - 4, size - 4);
+      } else {
+        drawSymbolTile(symbol, x, y, size);
+      }
       if (hat) {
         drawHatCellOutline(hat.color, x, y, size);
       }
+      if (!revealed && symbol === 'HAT2') {
+        drawHatStepBadge('2×', x, y, size);
+      } else if (!revealed && symbol === 'HAT3') {
+        drawHatStepBadge('3×', x, y, size);
+      }
 
-      if (hat?.prize !== null && hat?.prize !== undefined) {
-        ctx.fillStyle = '#111';
-        ctx.font = `bold ${Math.max(11, size * 0.16)}px system-ui`;
+      if (revealed && hat && prize !== undefined) {
         const label = hat.jackpot
-          ? formatJackpotShortLabel(hat.jackpot, getBetTierFromWager(state.denomination, state.bet), {
-              uppercase: true,
-            })
-          : String(Math.round(hat.prize / state.denomination));
-        ctx.fillText(label, x + size / 2, y + size * 0.78);
+          ? formatJackpotShortLabel(
+              hat.jackpot,
+              getBetTierFromWager(state.denomination, state.bet),
+              { uppercase: true }
+            )
+          : String(Math.round(prize / state.denomination));
+        drawRevealValue(label, x, y, size);
       }
 
       if (wins.has(`${reel}:${row}`)) {
@@ -296,14 +308,102 @@ function drawSymbolTile(
   const img = images[symbol];
   if (img && img.complete && img.naturalWidth > 0) {
     ctx.drawImage(img, x + 2, y + 2, size - 4, size - 4);
-    return;
+  } else if (symbol !== 'WILD') {
+    ctx.fillStyle = '#111';
+    ctx.font = `bold ${Math.max(12, size * 0.22)}px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(SYMBOL_TEXT[symbol], x + size / 2, y + size / 2);
   }
 
-  ctx.fillStyle = '#111';
-  ctx.font = `bold ${Math.max(12, size * 0.22)}px system-ui`;
+  if (symbol === 'WILD') {
+    drawWildLabel(x, y, size);
+  } else if (symbol === 'HAT2') {
+    drawHatStepBadge('2×', x, y, size);
+  } else if (symbol === 'HAT3') {
+    drawHatStepBadge('3×', x, y, size);
+  }
+}
+
+function drawWildLabel(x: number, y: number, size: number) {
+  const label = 'WILD';
+  ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(SYMBOL_TEXT[symbol], x + size / 2, y + size / 2);
+  const fontSize = Math.max(18, size * 0.2);
+  ctx.font = `bold ${fontSize}px system-ui`;
+  const width = Math.min(size * 0.86, ctx.measureText(label).width + fontSize * 0.7);
+  const height = fontSize * 1.2;
+  const cx = x + size / 2;
+  const cy = y + size * 0.72;
+  ctx.fillStyle = 'rgba(26, 18, 12, 0.84)';
+  ctx.beginPath();
+  ctx.roundRect(cx - width / 2, cy - height / 2, width, height, height / 2);
+  ctx.fill();
+  ctx.fillStyle = '#f7f1e4';
+  ctx.fillText(label, cx, cy);
+  ctx.restore();
+}
+
+function drawHatStepBadge(label: string, x: number, y: number, size: number) {
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const fontSize = Math.max(14, size * 0.18);
+  ctx.font = `bold ${fontSize}px system-ui`;
+  const badge = fontSize * 1.35;
+  const cx = x + size - badge * 0.72;
+  const cy = y + badge * 0.72;
+  ctx.fillStyle = '#1a120c';
+  ctx.beginPath();
+  ctx.arc(cx, cy, badge * 0.62, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#f7f1e4';
+  ctx.fillText(label, cx, cy);
+  ctx.restore();
+}
+
+function drawRevealValue(label: string, x: number, y: number, size: number) {
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  let fontSize = size * 0.46;
+  ctx.font = `bold ${fontSize}px system-ui`;
+  const maxWidth = size * 0.78;
+  while (ctx.measureText(label).width > maxWidth && fontSize > 16) {
+    fontSize -= 1;
+    ctx.font = `bold ${fontSize}px system-ui`;
+  }
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#1a120c';
+  ctx.lineWidth = Math.max(4, fontSize * 0.1);
+  ctx.strokeText(label, x + size / 2, y + size / 2);
+  ctx.fillStyle = '#f7f1e4';
+  ctx.fillText(label, x + size / 2, y + size / 2);
+  ctx.restore();
+}
+
+function drawLockedHatOutlines(hatCells: HatBonusCell[], rowCount: number) {
+  if (hatCells.length === 0) {
+    return;
+  }
+  const { size, pad } = cellSize(rowCount);
+  for (const cell of hatCells) {
+    if (
+      cell.row < 0 ||
+      cell.row >= rowCount ||
+      cell.reel < 0 ||
+      cell.reel >= REEL_COUNT
+    ) {
+      continue;
+    }
+    drawHatCellOutline(
+      cell.color,
+      pad + cell.reel * size,
+      pad + cell.row * size,
+      size
+    );
+  }
 }
 
 function reelScrollOffset(
@@ -328,10 +428,12 @@ export function animateReels(
     fromGrid: SymbolId[][];
     fromStops: number[];
     result: SpinResult;
+    hatCells?: HatBonusCell[];
   },
   onStop: (reel: number) => void
 ): Promise<void> {
   const { fromGrid, fromStops, result } = options;
+  const hatCells = options.hatCells ?? [];
   const rowCount = result.grid[0]?.length ?? ROWS;
   setActiveRows(rowCount);
   const reelSet = getReelSet(
@@ -414,8 +516,10 @@ export function animateReels(
         ctx.restore();
       }
 
+      drawLockedHatOutlines(hatCells, rowCount);
+
       if (stopped.size === REEL_COUNT) {
-        drawGrid(result.grid);
+        drawGrid(result.grid, hatCells);
         resolve();
         return;
       }

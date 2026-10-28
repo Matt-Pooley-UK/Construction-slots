@@ -773,7 +773,12 @@ export async function runSpin() {
     const currentBetTier = getBetTier(currentDenomination, state.betMultiplier);
 
     await animateReels(
-      { fromGrid: displayGrid, fromStops: displayStops, result },
+      {
+        fromGrid: displayGrid,
+        fromStops: displayStops,
+        result,
+        hatCells: isHatBonusSpin ? (state.hatBonus?.cells ?? []) : [],
+      },
       (reel) => {
         playReelStop(
           columnHas(result.grid, reel, 'bonus'),
