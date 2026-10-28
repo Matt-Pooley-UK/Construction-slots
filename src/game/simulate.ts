@@ -1,11 +1,10 @@
 import { spinReels } from './spin';
 import { evaluateSpin } from './evaluate';
 import {
-  applyBuzzSawSweeps,
+  applyFlagAdvances,
   applyHatBonusSpin,
   applyPowerSawPaint,
   buildBuzzSawInitialState,
-  buildBuzzSawSweeps,
   buildPowerSawInitialState,
   createHatBonusState,
   describeHatBonusMode,
@@ -359,10 +358,14 @@ function simulateHatBonusSession(
     state = spinResult.state;
 
     if (isBuzzSaw) {
-      const sweeps = buildBuzzSawSweeps(findBonusPositions(grid), rowCount);
       state = {
         ...state,
-        cells: applyBuzzSawSweeps(state.cells, sweeps, state.mode),
+        cells: applyFlagAdvances(
+          state.cells,
+          findBonusPositions(grid),
+          state.mode,
+          rowCount
+        ),
       };
     } else if (isSuperPowerSaw) {
       const bonusPositions = sortBonusPositionsRightmostFirst(

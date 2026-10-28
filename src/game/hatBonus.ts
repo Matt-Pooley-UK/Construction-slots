@@ -39,14 +39,6 @@ export type HatBonusMode =
   | 'buzzSaw'
   | 'superBuzzSaw';
 
-export type BuzzSawDirection = 'up' | 'down' | 'left' | 'right';
-
-export interface BuzzSawSweep {
-  start: GridPosition;
-  direction: BuzzSawDirection;
-  path: GridPosition[];
-}
-
 export interface HatTriggerResult {
   count: number;
   positions: GridPosition[];
@@ -333,7 +325,7 @@ export function describeHatBonusMode(mode: HatBonusMode | undefined): string {
   }
 }
 
-/** True for Flag Bonus and Super Flag Bonus (cardinal BONUS sweeps). */
+/** True for Flag Bonus and Super Flag Bonus (cardinal neighbor advances). */
 export function isBuzzSawBonusMode(mode?: HatBonusMode): boolean {
   return mode === 'buzzSaw' || mode === 'superBuzzSaw';
 }
@@ -364,7 +356,7 @@ export function getHatBonusRowCount(mode?: HatBonusMode): number {
   return isTallBonusMode(mode) ? SUPER_HAT_ROWS : ROWS;
 }
 
-/** Left-to-right, then top-to-bottom — used for sequential Flag Bonus sweeps. */
+/** Left-to-right, then top-to-bottom — flags advance in this order. */
 export function sortBonusPositionsReadingOrder(
   positions: GridPosition[]
 ): GridPosition[] {
@@ -377,40 +369,52 @@ export function sortBonusPositionsReadingOrder(
   });
 }
 
-export function pickBuzzSawDirection(): BuzzSawDirection {
-  const directions: BuzzSawDirection[] = ['up', 'down', 'left', 'right'];
-  return directions[Math.floor(Math.random() * directions.length)];
-}
+const FLAG_NEIGHBOR_DELTAS: ReadonlyArray<GridPosition> = [
+  { reel: 0, row: -1 },
+  { reel: 1, row: 0 },
+  { reel: 0, row: 1 },
+  { reel: -1, row: 0 },
+];
 
-export function getBuzzSawPath(
-  start: GridPosition,
-  direction: BuzzSawDirection,
+/** The in-bounds cells above, right, below, and left of a flag. */
+export function getFlagNeighborPositions(
+  origin: GridPosition,
   reelCount = REEL_COUNT,
   rowCount = ROWS
 ): GridPosition[] {
-  const path: GridPosition[] = [{ ...start }];
-  let reel = start.reel;
-  let row = start.row;
+  const neighbors: GridPosition[] = [];
 
-  while (true) {
-    if (direction === 'right') {
-      reel += 1;
-    } else if (direction === 'left') {
-      reel -= 1;
-    } else if (direction === 'down') {
-      row += 1;
-    } else {
-      row -= 1;
-    }
+  for (const delta of FLAG_NEIGHBOR_DELTAS) {
+    const reel = origin.reel + delta.reel;
+    const row = origin.row + delta.row;
 
     if (reel < 0 || reel >= reelCount || row < 0 || row >= rowCount) {
-      break;
+      continue;
     }
 
-    path.push({ reel, row });
+    neighbors.push({ reel, row });
   }
 
-  return path;
+  return neighbors;
+}
+
+/**
+ * One step per in-bounds cardinal neighbor. Flags run in reading order, and
+ * each flag's neighbors run clockwise from the cell above it. A cell that
+ * neighbors two flags is advanced once for each flag.
+ */
+export function listFlagAdvances(
+  bonusPositions: GridPosition[],
+  rowCount = ROWS,
+  reelCount = REEL_COUNT
+): GridPosition[] {
+  const advances: GridPosition[] = [];
+
+  for (const start of sortBonusPositionsReadingOrder(bonusPositions)) {
+    advances.push(...getFlagNeighborPositions(start, reelCount, rowCount));
+  }
+
+  return advances;
 }
 
 /**
@@ -478,47 +482,25 @@ export function buildTallBonusIntroGrid(
 /** @deprecated Use buildTallBonusIntroGrid — kept as an alias. */
 export const buildSuperBuzzSawIntroGrid = buildTallBonusIntroGrid;
 
-export function buildBuzzSawSweeps(
+/** Advance each flag's four cardinal neighbors by one color tier. */
+export function applyFlagAdvances(
+  cells: HatBonusCell[],
   bonusPositions: GridPosition[],
+  mode: HatBonusMode = 'buzzSaw',
   rowCount = ROWS
-): BuzzSawSweep[] {
-  return sortBonusPositionsReadingOrder(bonusPositions).map((start) => {
-    const direction = pickBuzzSawDirection();
-    return {
-      start,
-      direction,
-      path: getBuzzSawPath(start, direction, REEL_COUNT, rowCount),
-    };
-  });
-}
-
-export function applyBuzzSawPaint(
-  cells: HatBonusCell[],
-  position: GridPosition,
-  mode: HatBonusMode = 'buzzSaw'
-): HatBonusCell[] {
-  return applyPowerSawPaint(cells, position, mode);
-}
-
-export function applyBuzzSawSweeps(
-  cells: HatBonusCell[],
-  sweeps: BuzzSawSweep[],
-  mode: HatBonusMode = 'buzzSaw'
 ): HatBonusCell[] {
   let next = cells;
 
-  for (const sweep of sweeps) {
-    for (const position of sweep.path) {
-      next = applyBuzzSawPaint(next, position, mode);
-    }
+  for (const position of listFlagAdvances(bonusPositions, rowCount)) {
+    next = applyPowerSawPaint(next, position, mode);
   }
 
   return next;
 }
 
 /**
- * Instant Flag Bonus setup for simulation: each BONUS picks a random cardinal
- * direction and paints along that path (start cell included).
+ * Instant Flag Bonus setup for simulation: each flag advances the four
+ * in-bounds cells above, right, below, and left of it.
  */
 export function buildBuzzSawInitialState(
   bonusPositions: GridPosition[],
@@ -532,13 +514,11 @@ export function buildBuzzSawInitialState(
     mode === 'superBuzzSaw'
       ? expandBonusPositionsForTallGrid(bonusPositions)
       : bonusPositions;
-  const sweeps = buildBuzzSawSweeps(starts, rowCount);
-
   return {
     bet,
     denomination,
     spinsRemaining: freeSpins,
-    cells: applyBuzzSawSweeps([], sweeps, mode),
+    cells: applyFlagAdvances([], starts, mode, rowCount),
     blueHitPayout: 0,
     mode,
   };

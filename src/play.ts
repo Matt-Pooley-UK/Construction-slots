@@ -32,7 +32,6 @@ import { spinReelsForcedBonus, spinReelsForcedHat } from './game/forcedSpin';
 import {
   applyHatBonusSpin,
   applyPowerSawPaint,
-  buildBuzzSawSweeps,
   buildPowerSawInitialState,
   buildTallBonusIntroGrid,
   createHatBonusState,
@@ -40,11 +39,13 @@ import {
   excludeRedirectTargetTransitions,
   expandBonusPositionsForTallGrid,
   findBonusPositions,
+  getFlagNeighborPositions,
   getHatBonusRowCount,
   isBonusKeepingMode,
   isBuzzSawBonusMode,
   isTallBonusMode,
   resolveHatBonusPrizes,
+  sortBonusPositionsReadingOrder,
   sortBonusPositionsRightmostFirst,
   type HatBonusCell,
   type HatBonusMode,
@@ -377,10 +378,11 @@ async function startMegaHatSession(betAmount: number, tall = false) {
 async function paintSweepCells(
   starts: GridPosition[],
   mode: HatBonusMode,
-  kind: 'power' | 'buzz'
+  kind: 'power' | 'buzz',
+  existing: HatBonusCell[] = []
 ) {
-  let cells: HatBonusCell[] = [];
   if (kind === 'power') {
+    let cells: HatBonusCell[] = [];
     for (const start of sortBonusPositionsRightmostFirst(starts)) {
       for (let reel = start.reel; reel < REEL_COUNT; reel++) {
         cells = applyPowerSawPaint(cells, { reel, row: start.row }, mode);
@@ -392,9 +394,11 @@ async function paintSweepCells(
     return cells;
   }
 
-  const sweeps = buildBuzzSawSweeps(starts, getHatBonusRowCount(mode));
-  for (const sweep of sweeps) {
-    for (const position of sweep.path) {
+  let cells = existing;
+  const rowCount = getHatBonusRowCount(mode);
+  for (const start of sortBonusPositionsReadingOrder(starts)) {
+    const neighbors = getFlagNeighborPositions(start, REEL_COUNT, rowCount);
+    for (const position of neighbors) {
       cells = applyPowerSawPaint(cells, position, mode);
       paintGrid(displayGrid, cells);
       await delay(POWER_SAW_STEP_MS);
@@ -844,7 +848,8 @@ export async function runSpin() {
           const painted = await paintSweepCells(
             bonusPositions,
             state.hatBonus.mode ?? 'buzzSaw',
-            'buzz'
+            'buzz',
+            state.hatBonus.cells
           );
           writeHatBonus({ ...state.hatBonus, cells: painted });
           paintGrid(displayGrid, painted, paylinePositions);
@@ -911,7 +916,7 @@ export async function runSpin() {
           );
         }
       } else if (buzzCutCount > 0) {
-        extras.push(`${buzzCutCount} buzz cut${buzzCutCount === 1 ? '' : 's'}`);
+        extras.push(`${buzzCutCount} flag${buzzCutCount === 1 ? '' : 's'}`);
       } else if (powerCutCount > 0) {
         extras.push(
           `${powerCutCount} power cut${powerCutCount === 1 ? '' : 's'}`
@@ -952,7 +957,9 @@ export async function runSpin() {
       addHatBonusSessionWon(evaluation.totalPayout);
 
       if (hatSpinResult.state.spinsRemaining === 0) {
-        const endPrizePayout = await playHatBonusReveal(hatSpinResult.state);
+        const endPrizePayout = await playHatBonusReveal(
+          state.hatBonus ?? hatSpinResult.state
+        );
         addHatBonusSessionWon(endPrizePayout);
         addToFreeSpinSession(endPrizePayout);
         const totalWon = state.hatBonusSessionWon;
