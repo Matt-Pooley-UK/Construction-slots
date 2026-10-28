@@ -454,7 +454,7 @@ async function startBuzzSawSession(
 ) {
   revealing = true;
   const triggerPositions = findBonusPositions(grid);
-  setStatus(`${describeHatBonusMode(mode)} — cutting...`);
+  setStatus(`${describeHatBonusMode(mode)} — waving...`);
   syncUi();
 
   try {
@@ -1056,7 +1056,7 @@ export async function runSpin() {
           );
           resultText = joinSpinStatus(
             formatSpinResult(evaluation, currentDenomination),
-            `Wheel: Buzz Saw — ${buzz.spinsRemaining} free spins`
+            `Wheel: ${describeHatBonusMode('buzzSaw')} — ${buzz.spinsRemaining} free spins`
           );
         } else if (outcome.type === 'superBuzzSaw' && !state.hatBonus) {
           const superBuzz = await startBuzzSawSession(
@@ -1068,7 +1068,7 @@ export async function runSpin() {
           );
           resultText = joinSpinStatus(
             formatSpinResult(evaluation, currentDenomination),
-            `Wheel: Super Buzz Saw — ${superBuzz.spinsRemaining} free spins`
+            `Wheel: ${describeHatBonusMode('superBuzzSaw')} — ${superBuzz.spinsRemaining} free spins`
           );
         } else if (outcome.type === 'megaHat' && !state.hatBonus) {
           const mega = await startMegaHatSession(currentBet);

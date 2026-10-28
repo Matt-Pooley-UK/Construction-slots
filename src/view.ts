@@ -579,6 +579,32 @@ export function animateWheel(
   });
 }
 
+function drawWheelLabel(text: string, maxWidth: number) {
+  if (wheelCtx.measureText(text).width <= maxWidth) {
+    wheelCtx.fillText(text, 0, 0);
+    return;
+  }
+  const words = text.split(' ');
+  if (words.length < 2) {
+    wheelCtx.fillText(text, 0, 0);
+    return;
+  }
+  let splitAt = 1;
+  let narrowest = Infinity;
+  for (let index = 1; index < words.length; index++) {
+    const width = Math.max(
+      wheelCtx.measureText(words.slice(0, index).join(' ')).width,
+      wheelCtx.measureText(words.slice(index).join(' ')).width
+    );
+    if (width < narrowest) {
+      narrowest = width;
+      splitAt = index;
+    }
+  }
+  wheelCtx.fillText(words.slice(0, splitAt).join(' '), 0, -6);
+  wheelCtx.fillText(words.slice(splitAt).join(' '), 0, 7);
+}
+
 export function drawWheel(sections: BonusWheelSection[], rotationDeg: number) {
   const { width, height } = wheelCanvas;
   wheelCtx.clearRect(0, 0, width, height);
@@ -604,13 +630,15 @@ export function drawWheel(sections: BonusWheelSection[], rotationDeg: number) {
     wheelCtx.stroke();
 
     const mid = start + index * slice + slice / 2;
+    const textRadius = radius * 0.68;
     wheelCtx.save();
-    wheelCtx.translate(cx + Math.cos(mid) * radius * 0.68, cy + Math.sin(mid) * radius * 0.68);
+    wheelCtx.translate(cx + Math.cos(mid) * textRadius, cy + Math.sin(mid) * textRadius);
     wheelCtx.rotate(mid + Math.PI / 2);
     wheelCtx.fillStyle = '#fff';
     wheelCtx.font = 'bold 11px system-ui';
     wheelCtx.textAlign = 'center';
-    wheelCtx.fillText(section.label, 0, 0);
+    wheelCtx.textBaseline = 'middle';
+    drawWheelLabel(section.label, 2 * textRadius * Math.sin(slice / 2) * 0.9);
     wheelCtx.restore();
   });
   wheelCtx.restore();

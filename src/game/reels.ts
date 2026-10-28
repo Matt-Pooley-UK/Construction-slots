@@ -467,7 +467,7 @@ export function getReelSet(
     return superBuzzSawReels;
   }
 
-  // Buzz Saw keeps BONUS on the strips (same density as free-spin reels).
+  // Flag Bonus keeps BONUS on the strips (same density as free-spin reels).
   if (isBuzzSaw) {
     return freeSpinReels;
   }

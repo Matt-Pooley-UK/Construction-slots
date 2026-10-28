@@ -325,15 +325,15 @@ export function describeHatBonusMode(mode: HatBonusMode | undefined): string {
     case 'mansions':
       return 'Mansions';
     case 'buzzSaw':
-      return 'Buzz Saw';
+      return 'Flag Bonus';
     case 'superBuzzSaw':
-      return 'Super Buzz Saw';
+      return 'Super Flag Bonus';
     default:
       return 'Hat Bonus';
   }
 }
 
-/** True for Buzz Saw and Super Buzz Saw (cardinal BONUS sweeps). */
+/** True for Flag Bonus and Super Flag Bonus (cardinal BONUS sweeps). */
 export function isBuzzSawBonusMode(mode?: HatBonusMode): boolean {
   return mode === 'buzzSaw' || mode === 'superBuzzSaw';
 }
@@ -345,7 +345,7 @@ export function isPowerSawBonusMode(mode?: HatBonusMode): boolean {
 
 /**
  * Features that keep BONUS on the strips and count BONUS toward extra spins /
- * mid-feature paints (Buzz Saw family + Super Power Saw).
+ * mid-feature paints (Flag Bonus family + Super Power Saw).
  */
 export function isBonusKeepingMode(mode?: HatBonusMode): boolean {
   return isBuzzSawBonusMode(mode) || mode === 'superPowerSaw';
@@ -364,7 +364,7 @@ export function getHatBonusRowCount(mode?: HatBonusMode): number {
   return isTallBonusMode(mode) ? SUPER_HAT_ROWS : ROWS;
 }
 
-/** Left-to-right, then top-to-bottom — used for sequential Buzz Saw sweeps. */
+/** Left-to-right, then top-to-bottom — used for sequential Flag Bonus sweeps. */
 export function sortBonusPositionsReadingOrder(
   positions: GridPosition[]
 ): GridPosition[] {
@@ -517,7 +517,7 @@ export function applyBuzzSawSweeps(
 }
 
 /**
- * Instant Buzz Saw setup for simulation: each BONUS picks a random cardinal
+ * Instant Flag Bonus setup for simulation: each BONUS picks a random cardinal
  * direction and paints along that path (start cell included).
  */
 export function buildBuzzSawInitialState(
@@ -908,7 +908,7 @@ function applyHatUpgradeSteps(
 
     if (!upgradedColor) {
       // Non-Ultra modes cap at red: overflow like blue, or 10× if board is full red.
-      // Buzz Saw never awards the red board-full cash prize when crossing/hitting red.
+      // Flag Bonus never awards the red board-full cash prize when crossing/hitting red.
       const overflow = applyOverflowHit(
         cellMap,
         position,

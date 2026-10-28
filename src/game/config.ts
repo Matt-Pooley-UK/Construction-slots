@@ -74,7 +74,7 @@ export const ULTRA_HAT_3X_PER_REEL = 3;
 export const SUPER_HAT_ROWS = 6;
 /** Wheel weight so Super Hat is ~8% of landings among current sections. */
 export const SUPER_HAT_WHEEL_WEIGHT = 0.47;
-/** Wheel weight so Super Buzz Saw is ~5% of landings among current sections. */
+/** Wheel weight so Super Flag Bonus is ~5% of landings among current sections. */
 export const SUPER_BUZZ_SAW_WHEEL_WEIGHT = 0.31;
 /** Wheel weight so Super Power Saw is ~5% of landings among current sections. */
 export const SUPER_POWER_SAW_WHEEL_WEIGHT = 0.33;

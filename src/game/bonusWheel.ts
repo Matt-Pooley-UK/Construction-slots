@@ -42,7 +42,7 @@ export interface BonusWheelSection {
 const BONUS_WHEEL_UNIQUE_SECTIONS: BonusWheelSection[] = [
   {
     id: 'buzz-saw',
-    label: 'Buzz Saw',
+    label: 'Flag Bonus',
     color: '#a16207',
     imageSrc: '/symbols/bonus.png',
     outcome: { type: 'buzzSaw' },
@@ -112,7 +112,7 @@ const BONUS_WHEEL_UNIQUE_SECTIONS: BonusWheelSection[] = [
 const UPGRADE_WHEEL_UNIQUE_SECTIONS: BonusWheelSection[] = [
   {
     id: 'super-buzz-saw',
-    label: 'Super Buzz Saw',
+    label: 'Super Flag Bonus',
     color: '#92400e',
     imageSrc: '/symbols/bonus.png',
     outcome: { type: 'superBuzzSaw' },
@@ -289,11 +289,11 @@ export function describeBonusWheelOutcome(
   }
 
   if (outcome.type === 'buzzSaw') {
-    return 'Buzz Saw';
+    return 'Flag Bonus';
   }
 
   if (outcome.type === 'superBuzzSaw') {
-    return 'Super Buzz Saw';
+    return 'Super Flag Bonus';
   }
 
   if (outcome.type === 'powerSaw') {
