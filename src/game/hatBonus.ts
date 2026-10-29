@@ -319,9 +319,9 @@ export function isBonusKeepingMode(mode?: HatBonusMode): boolean {
   return isBuzzSawBonusMode(mode);
 }
 
-/** True for features that use the 6-row window and Super Crown paylines. */
+/** True for features that use the 6-row window and the tall paylines. */
 export function isTallBonusMode(mode?: HatBonusMode): boolean {
-  return mode === 'superHat' || mode === 'superBuzzSaw';
+  return mode === 'superHat' || mode === 'superBuzzSaw' || mode === 'ultraHat';
 }
 
 export function getHatBonusRowCount(mode?: HatBonusMode): number {
@@ -453,6 +453,24 @@ export function buildTallBonusIntroGrid(
 
 /** @deprecated Use buildTallBonusIntroGrid — kept as an alias. */
 export const buildSuperBuzzSawIntroGrid = buildTallBonusIntroGrid;
+
+/**
+ * Pin the triggering 3-row window to the top of a 6-row Ultra Crown grid.
+ * The new rows are plain symbols so the extra reels start empty of crowns.
+ */
+export function buildUltraCrownIntroGrid(grid: SymbolId[][]): SymbolId[][] {
+  const fillers: SymbolId[] = ['A', 'K', 'Q', 'J', 'PREM1', 'PREM2', 'PREM3'];
+
+  return grid.map((column) => {
+    const tall = column.slice(0, ROWS);
+
+    while (tall.length < SUPER_HAT_ROWS) {
+      tall.push(fillers[Math.floor(Math.random() * fillers.length)]);
+    }
+
+    return tall;
+  });
+}
 
 /** Advance each flag's four cardinal neighbors by one color tier. */
 export function applyFlagAdvances(

@@ -31,6 +31,7 @@ import {
   applyHatBonusSpin,
   applyPowerSawPaint,
   buildTallBonusIntroGrid,
+  buildUltraCrownIntroGrid,
   createHatBonusState,
   describeHatBonusMode,
   excludeRedirectTargetTransitions,
@@ -1022,20 +1023,28 @@ export async function runSpin() {
             formatSpinResult(evaluation, currentDenomination),
             `Wheel: Super Crown — ${superHat.spinsRemaining} free spins`
           );
-        } else if (
-          (outcome.type === 'ultraHat' || outcome.type === 'mansions') &&
-          !state.hatBonus
-        ) {
-          const mode: HatBonusMode =
-            outcome.type === 'ultraHat' ? 'ultraHat' : 'mansions';
+        } else if (outcome.type === 'ultraHat' && !state.hatBonus) {
+          setActiveRows(SUPER_HAT_ROWS);
+          displayGrid = buildUltraCrownIntroGrid(result.grid);
+          paintGrid(displayGrid);
           const hatState = startHatBonusSession(
             findBonusPositions(result.grid),
             currentBet,
-            mode
+            'ultraHat'
           );
           resultText = joinSpinStatus(
             formatSpinResult(evaluation, currentDenomination),
-            `Wheel: ${describeHatBonusMode(mode)} — ${hatState.spinsRemaining} free spins`
+            `Wheel: ${describeHatBonusMode('ultraHat')} — ${hatState.spinsRemaining} free spins`
+          );
+        } else if (outcome.type === 'mansions' && !state.hatBonus) {
+          const hatState = startHatBonusSession(
+            findBonusPositions(result.grid),
+            currentBet,
+            'mansions'
+          );
+          resultText = joinSpinStatus(
+            formatSpinResult(evaluation, currentDenomination),
+            `Wheel: ${describeHatBonusMode('mansions')} — ${hatState.spinsRemaining} free spins`
           );
         }
       } else if (evaluation.hatTrigger && !state.hatBonus) {
@@ -1158,6 +1167,7 @@ export function initPlay() {
   if (state.hatBonus && isTallBonusMode(state.hatBonus.mode)) {
     setActiveRows(SUPER_HAT_ROWS);
     const fresh = spinReels({
+      isUltraHat: state.hatBonus.mode === 'ultraHat',
       isSuperHat: state.hatBonus.mode === 'superHat',
       isSuperBuzzSaw: state.hatBonus.mode === 'superBuzzSaw',
       isFreeSpin: true,
