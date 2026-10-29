@@ -53,8 +53,10 @@ export const HAT_BONUS_BLUE_HIT_MULTIPLIER = 20;
 /** Instant prize when a non-Ultra hat bonus has a full red board and a hat hits red. */
 export const HAT_BONUS_RED_HIT_MULTIPLIER = 10;
 export const HAT_BONUS_REVEAL_DELAY_MS = 5000;
-/** Duration for a blue-overflow hat flying to its redirect target cell. */
-export const HAT_BLUE_REDIRECT_MS = 340;
+/** How long a maxed crown takes to travel to its overflow cell. */
+export const HAT_BLUE_REDIRECT_MS = 640;
+/** How long a landed flag takes to expand into its adjacent squares. */
+export const FLAG_EXPAND_MS = 780;
 export const HAT_BLUE_REDIRECT_GAP_MS = 90;
 /** Clockwise color wipe when hat bonus cells upgrade. */
 export const HAT_COLOR_TRANSITION_MS = 720;

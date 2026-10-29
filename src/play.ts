@@ -14,11 +14,9 @@ import {
 } from './game/bonusWheel';
 import {
   HAT_BLUE_REDIRECT_GAP_MS,
-  HAT_BLUE_REDIRECT_MS,
   HAT_BONUS_FREE_SPINS,
   HAT_BONUS_REVEAL_DELAY_MS,
   HAT_COLOR_TRANSITION_MS,
-  POWER_SAW_STEP_MS,
   POWER_SAW_SWEEP_GAP_MS,
   REEL_COUNT,
   ROWS,
@@ -69,7 +67,7 @@ import {
 } from './game/simulate';
 import { spinReels, type SpinResult } from './game/spin';
 import { renderSimulationReport } from './simulationReport';
-import type { SymbolId } from './game/symbols';
+import { isHatSymbol, type SymbolId } from './game/symbols';
 import {
   addFreeSpins,
   addHatBonusSessionWon,
@@ -82,6 +80,8 @@ import {
   state,
 } from './state/store';
 import {
+  animateCrownTravel,
+  animateFlagExpand,
   animateReels,
   animateWheel,
   columnHas,
@@ -384,17 +384,30 @@ async function startMegaHatSession(betAmount: number, tall = false) {
 async function paintSweepCells(
   starts: GridPosition[],
   mode: HatBonusMode,
-  existing: HatBonusCell[] = []
+  existing: HatBonusCell[] = [],
+  highlights: GridPosition[] = []
 ) {
   let cells = existing;
   const rowCount = getHatBonusRowCount(mode);
   for (const start of sortBonusPositionsReadingOrder(starts)) {
     const neighbors = getFlagNeighborPositions(start, REEL_COUNT, rowCount);
-    for (const position of neighbors) {
-      cells = applyPowerSawPaint(cells, position, mode);
-      paintGrid(displayGrid, cells);
-      await delay(POWER_SAW_STEP_MS);
+    if (neighbors.length === 0) {
+      continue;
     }
+    let next = cells;
+    for (const position of neighbors) {
+      next = applyPowerSawPaint(next, position, mode);
+    }
+    await animateFlagExpand({
+      grid: displayGrid,
+      fromCells: cells,
+      toCells: next,
+      highlights,
+      origin: start,
+      targets: neighbors,
+    });
+    cells = next;
+    paintGrid(displayGrid, cells, highlights);
     await delay(POWER_SAW_SWEEP_GAP_MS);
   }
   return cells;
@@ -766,7 +779,15 @@ export async function runSpin() {
         );
         paintGrid(displayGrid, [...live.values()], paylinePositions);
         for (const redirect of hatSpinResult.redirects) {
-          await delay(HAT_BLUE_REDIRECT_MS);
+          const landed = result.grid[redirect.from.reel]?.[redirect.from.row];
+          await animateCrownTravel({
+            grid: displayGrid,
+            hatCells: [...live.values()],
+            highlights: paylinePositions,
+            from: redirect.from,
+            to: redirect.to,
+            symbol: landed && isHatSymbol(landed) ? landed : 'HAT',
+          });
           live.set(`${redirect.to.reel}:${redirect.to.row}`, {
             reel: redirect.to.reel,
             row: redirect.to.row,
@@ -798,7 +819,8 @@ export async function runSpin() {
           const painted = await paintSweepCells(
             bonusPositions,
             state.hatBonus.mode ?? 'buzzSaw',
-            state.hatBonus.cells
+            state.hatBonus.cells,
+            paylinePositions
           );
           writeHatBonus({ ...state.hatBonus, cells: painted });
           paintGrid(displayGrid, painted, paylinePositions);

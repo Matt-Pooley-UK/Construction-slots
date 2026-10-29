@@ -14,6 +14,8 @@ import {
   getBetMultipliers,
   paytable,
   SCATTER_PAYS,
+  FLAG_EXPAND_MS,
+  HAT_BLUE_REDIRECT_MS,
   HAT_CELL_PRIZE_RANGES,
   HAT_TRIGGER_COUNT,
   type HatCellColor,
@@ -95,6 +97,8 @@ const BASE = import.meta.env.BASE_URL;
 let lastGrid: SymbolId[][] | null = null;
 let lastHatCells: HatBonusCell[] = [];
 let lastHighlights: { reel: number; row: number }[] = [];
+/** While an overlay animation is drawing, image loads replay that frame. */
+let frameOverride: (() => void) | null = null;
 
 export function loadSymbolImages() {
   const files: Record<SymbolId, string> = {
@@ -118,7 +122,9 @@ export function loadSymbolImages() {
         return;
       }
       images[id] = img;
-      if (lastGrid) {
+      if (frameOverride) {
+        frameOverride();
+      } else if (lastGrid) {
         drawGrid(lastGrid, lastHatCells, lastHighlights);
       }
     };
@@ -381,6 +387,183 @@ function drawRevealValue(label: string, x: number, y: number, size: number) {
   ctx.fillStyle = '#f7f1e4';
   ctx.fillText(label, x + size / 2, y + size / 2);
   ctx.restore();
+}
+
+function easeOutCubic(progress: number) {
+  return 1 - (1 - progress) ** 3;
+}
+
+function easeInOutCubic(progress: number) {
+  return progress < 0.5
+    ? 4 * progress * progress * progress
+    : 1 - (-2 * progress + 2) ** 3 / 2;
+}
+
+function playCanvasAnimation(
+  durationMs: number,
+  draw: (progress: number) => void
+): Promise<void> {
+  return new Promise((resolve) => {
+    const started = performance.now();
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - started) / durationMs);
+      const frame = () => draw(progress);
+      frameOverride = frame;
+      frame();
+      if (progress < 1) {
+        requestAnimationFrame(tick);
+        return;
+      }
+      frameOverride = null;
+      resolve();
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+function clipGridCells(
+  cells: { reel: number; row: number }[],
+  size: number,
+  pad: number
+) {
+  ctx.beginPath();
+  for (const cell of cells) {
+    ctx.rect(
+      pad + cell.reel * size + 2,
+      pad + cell.row * size + 2,
+      size - 4,
+      size - 4
+    );
+  }
+  ctx.clip();
+}
+
+/**
+ * Grow a full flag tile out of the landed flag and into each adjacent square.
+ * Clipped to the flag cell plus that square, so the picture does not spill
+ * onto cells the flag does not change.
+ */
+function drawExpandingFlag(
+  origin: { reel: number; row: number },
+  targets: { reel: number; row: number }[],
+  progress: number,
+  size: number,
+  pad: number
+) {
+  const fromX = pad + origin.reel * size + size / 2;
+  const fromY = pad + origin.row * size + size / 2;
+  const scale = 0.38 + progress * 0.62;
+  const drawSize = (size - 4) * scale;
+
+  for (const target of targets) {
+    const toX = pad + target.reel * size + size / 2;
+    const toY = pad + target.row * size + size / 2;
+    const x = fromX + (toX - fromX) * progress;
+    const y = fromY + (toY - fromY) * progress;
+    ctx.save();
+    clipGridCells([origin, target], size, pad);
+    drawSymbolTile('BONUS', x - drawSize / 2, y - drawSize / 2, drawSize);
+    ctx.restore();
+  }
+}
+
+function drawTravelingCrown(
+  symbol: SymbolId,
+  centerX: number,
+  centerY: number,
+  size: number
+) {
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+  ctx.shadowBlur = Math.max(8, size * 0.14);
+  ctx.shadowOffsetY = Math.max(4, size * 0.07);
+  drawSymbolTile(symbol, centerX - size / 2, centerY - size / 2, size);
+  ctx.restore();
+}
+
+export function animateFlagExpand(options: {
+  grid: SymbolId[][];
+  fromCells: HatBonusCell[];
+  toCells: HatBonusCell[];
+  highlights?: { reel: number; row: number }[];
+  origin: { reel: number; row: number };
+  targets: { reel: number; row: number }[];
+}): Promise<void> {
+  const highlights = options.highlights ?? [];
+  if (options.targets.length === 0) {
+    drawGrid(options.grid, options.toCells, highlights);
+    return Promise.resolve();
+  }
+
+  const rowCount = options.grid[0]?.length ?? ROWS;
+  const { size, pad } = cellSize(rowCount);
+
+  return playCanvasAnimation(FLAG_EXPAND_MS, (progress) => {
+    const expand = Math.min(1, progress / 0.74);
+    const fade = progress < 0.86 ? 1 : 1 - (progress - 0.86) / 0.14;
+    const cells = progress < 0.86 ? options.fromCells : options.toCells;
+    drawGrid(options.grid, cells, highlights);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, fade);
+    drawExpandingFlag(
+      options.origin,
+      options.targets,
+      easeOutCubic(expand),
+      size,
+      pad
+    );
+    ctx.restore();
+  });
+}
+
+export function animateCrownTravel(options: {
+  grid: SymbolId[][];
+  hatCells: HatBonusCell[];
+  highlights?: { reel: number; row: number }[];
+  from: { reel: number; row: number };
+  to: { reel: number; row: number };
+  symbol: SymbolId;
+}): Promise<void> {
+  const highlights = options.highlights ?? [];
+  const sameCell =
+    options.from.reel === options.to.reel && options.from.row === options.to.row;
+  if (sameCell) {
+    drawGrid(options.grid, options.hatCells, highlights);
+    return Promise.resolve();
+  }
+
+  const rowCount = options.grid[0]?.length ?? ROWS;
+  const { size, pad } = cellSize(rowCount);
+  const fromX = pad + options.from.reel * size + size / 2;
+  const fromY = pad + options.from.row * size + size / 2;
+  const toX = pad + options.to.reel * size + size / 2;
+  const toY = pad + options.to.row * size + size / 2;
+
+  return playCanvasAnimation(HAT_BLUE_REDIRECT_MS, (progress) => {
+    const eased = easeInOutCubic(progress);
+    const x = fromX + (toX - fromX) * eased;
+    const y = fromY + (toY - fromY) * eased;
+    const lift = Math.sin(Math.PI * eased) * size * 0.32;
+    const scale = 1.12 + Math.sin(Math.PI * eased) * 0.2;
+    drawGrid(options.grid, options.hatCells, highlights);
+    const marker = pad + options.to.reel * size;
+    const markerY = pad + options.to.row * size;
+    ctx.save();
+    ctx.fillStyle = `rgba(255, 214, 90, ${0.22 + eased * 0.16})`;
+    ctx.fillRect(marker + 7, markerY + 7, size - 14, size - 14);
+    ctx.strokeStyle = '#ffe08a';
+    ctx.lineWidth = 5;
+    ctx.shadowColor = 'rgba(255, 196, 60, 0.95)';
+    ctx.shadowBlur = 14;
+    ctx.strokeRect(marker + 6, markerY + 6, size - 12, size - 12);
+    ctx.restore();
+    drawTravelingCrown(
+      options.symbol,
+      x,
+      y - lift,
+      (size - 4) * scale
+    );
+  });
 }
 
 function drawLockedHatOutlines(hatCells: HatBonusCell[], rowCount: number) {
