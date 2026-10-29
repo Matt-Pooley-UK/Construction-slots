@@ -233,6 +233,13 @@ export function getSpinLabel() {
     return 'SPINNING...';
   }
   if (usingHatBonus()) {
+    const mode = state.hatBonus?.mode;
+    if (isBuzzSawBonusMode(mode)) {
+      return 'FLAG SPIN';
+    }
+    if (mode === 'mansions') {
+      return 'MANSIONS SPIN';
+    }
     return 'CROWN SPIN';
   }
   if (usingFreeSpin()) {
@@ -872,7 +879,7 @@ export async function runSpin() {
               formatSpinResult(evaluation, currentDenomination, {
                 includeHatTrigger: false,
               }),
-              `Crown: ${extras.join(', ')}`
+              `${describeHatBonusMode(state.hatBonus?.mode)}: ${extras.join(', ')}`
             )
           : formatSpinResult(evaluation, currentDenomination, {
               includeHatTrigger: false,
