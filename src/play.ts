@@ -50,10 +50,9 @@ import {
 } from './game/hatBonus';
 import { formatJackpotShortLabel, getJackpotPayout } from './game/jackpots';
 import {
-  SUPER_HAT_SIZES,
+  buildMegaHatSpinPlan,
+  buildSuperHatSpinPlan,
   cellsCoveredByMegaHat,
-  pickMegaHatSize,
-  randomMegaHatPlacement,
 } from './game/megaHat';
 import { formatWin, formatWinCredits } from './game/money';
 import {
@@ -83,6 +82,7 @@ import {
 import {
   animateCrownTravel,
   animateFlagExpand,
+  animateMegaCrownIntro,
   animateReels,
   animateWheel,
   columnHas,
@@ -360,17 +360,15 @@ async function startMegaHatSession(betAmount: number, tall = false) {
     if (tall) {
       setActiveRows(SUPER_HAT_ROWS);
     }
-    const size = pickMegaHatSize(tall ? SUPER_HAT_SIZES : undefined);
-    const placement = randomMegaHatPlacement(
-      size,
-      tall ? SUPER_HAT_ROWS : ROWS
-    );
-    const covered = cellsCoveredByMegaHat(placement);
+    const plan = tall ? buildSuperHatSpinPlan() : buildMegaHatSpinPlan();
+    await animateMegaCrownIntro(plan);
+    const landing = plan.entries[plan.landingIndex];
+    const covered = landing ? cellsCoveredByMegaHat(landing) : [];
+    const rowCount = tall ? SUPER_HAT_ROWS : ROWS;
     const intro: SymbolId[][] = Array.from({ length: REEL_COUNT }, () =>
-      Array.from({ length: tall ? SUPER_HAT_ROWS : ROWS }, () => 'HAT' as SymbolId)
+      Array.from({ length: rowCount }, () => 'HAT' as SymbolId)
     );
     paintGrid(intro);
-    await delay(800);
     const hatState = startHatBonusSession(covered, betAmount, mode);
     setStatus(
       `${describeHatBonusMode(mode)} — ${covered.length} cells locked — ${hatState.spinsRemaining} free spins`

@@ -37,6 +37,7 @@ import {
 import { getBetTierFromWager } from './game/bets';
 import { getJackpotMeterAmounts, isProgressiveJackpot } from './game/progressiveJackpots';
 import type { BonusWheelSection } from './game/bonusWheel';
+import type { MegaHatSpinPlan } from './game/megaHat';
 import { state } from './state/store';
 
 const SYMBOL_COLORS: Record<SymbolId, string> = {
@@ -564,6 +565,91 @@ export function animateCrownTravel(options: {
       (size - 4) * scale
     );
   });
+}
+
+/** Gold frame the size of a mega-crown footprint, with the crown kept square. */
+function drawLargeCrown(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  rotation: number
+) {
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
+  ctx.fillStyle = 'rgba(245, 158, 11, 0.55)';
+  ctx.strokeStyle = '#fde047';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.roundRect(-width / 2, -height / 2, width, height, 14);
+  ctx.fill();
+  ctx.stroke();
+  const maxSide = Math.min(width, height) * 0.82;
+  const img = images.HAT;
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, -maxSide / 2, -maxSide / 2, maxSide, maxSide);
+  }
+  ctx.restore();
+}
+
+/**
+ * Scroll oversized crowns down the reel window. They turn one full revolution
+ * at a steady rate and finish upright on the landing footprint.
+ */
+export function animateMegaCrownIntro(plan: MegaHatSpinPlan): Promise<void> {
+  const landing = plan.entries[plan.landingIndex];
+  if (!landing) {
+    return Promise.resolve();
+  }
+
+  const rowCount = getActiveRows();
+  const { size, pad } = cellSize(rowCount);
+  const endOffset = landing.stripOffsetCells * size;
+  const windowWidth = REEL_COUNT * size;
+  const windowHeight = rowCount * size;
+
+  const drawAt = (progress: number) => {
+    const eased = easeOutCubic(progress);
+    const rotation = (1 - progress) * Math.PI * 2;
+    ctx.fillStyle = '#0b0b0b';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(pad, pad, windowWidth, windowHeight);
+    ctx.clip();
+    for (const entry of plan.entries) {
+      const x = pad + entry.origin.reel * size;
+      const y =
+        pad +
+        entry.origin.row * size -
+        entry.stripOffsetCells * size +
+        endOffset * eased;
+      drawLargeCrown(
+        x,
+        y,
+        entry.size.width * size,
+        entry.size.height * size,
+        rotation
+      );
+    }
+    ctx.restore();
+  };
+
+  return playCanvasAnimation(plan.spinMs, drawAt).then(
+    () =>
+      new Promise<void>((resolve) => {
+        const hold = () => drawAt(1);
+        frameOverride = hold;
+        hold();
+        window.setTimeout(() => {
+          frameOverride = null;
+          resolve();
+        }, 450);
+      })
+  );
 }
 
 function drawLockedHatOutlines(hatCells: HatBonusCell[], rowCount: number) {
