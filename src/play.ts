@@ -514,19 +514,23 @@ async function playBonusWheel(): Promise<BonusWheelSection> {
 
   if (forcedId) {
     const forced = getBonusWheelSectionById(forcedId);
-    if (forced && forced.outcome.type !== 'upgrade') {
+    const onUpgradeWheel = UPGRADE_WHEEL_OUTCOMES.some(
+      (section) => section.id === forced?.id
+    );
+    if (forced?.outcome.type === 'upgrade' || onUpgradeWheel) {
+      return openBonusWheel(
+        UPGRADE_WHEEL_SECTIONS,
+        'Upgrade Wheel',
+        'Spin for an upgraded bonus!',
+        forced?.outcome.type === 'upgrade' ? undefined : forced
+      );
+    }
+    if (forced) {
       return openBonusWheel(
         BONUS_WHEEL_SECTIONS,
         'Bonus Wheel',
         'Spin the wheel to choose your bonus!',
         forced
-      );
-    }
-    if (forced?.outcome.type === 'upgrade') {
-      return openBonusWheel(
-        UPGRADE_WHEEL_SECTIONS,
-        'Upgrade Wheel',
-        'Spin for an upgraded bonus!'
       );
     }
   }
