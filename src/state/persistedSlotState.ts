@@ -51,8 +51,6 @@ export const EMPTY_FREE_SPIN_SESSION: FreeSpinSessionState = {
 
 const HAT_BONUS_MODES: HatBonusMode[] = [
   'hat',
-  'powerSaw',
-  'superPowerSaw',
   'megaHat',
   'ultraHat',
   'superHat',

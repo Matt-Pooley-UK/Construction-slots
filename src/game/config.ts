@@ -76,8 +76,6 @@ export const SUPER_HAT_ROWS = 6;
 export const SUPER_HAT_WHEEL_WEIGHT = 0.47;
 /** Wheel weight so Super Flag Bonus is ~5% of landings among current sections. */
 export const SUPER_BUZZ_SAW_WHEEL_WEIGHT = 0.31;
-/** Wheel weight so Super Power Saw is ~5% of landings among current sections. */
-export const SUPER_POWER_SAW_WHEEL_WEIGHT = 0.33;
 /** Wheel weight so Upgrade is ~5% of landings on the main bonus wheel. */
 export const UPGRADE_WHEEL_WEIGHT = 0.331;
 /** Wheel weight so Mansions is ~2.5% of landings on the main bonus wheel. */
@@ -88,7 +86,7 @@ export const JACKPOT_WHEEL_WEIGHT = 0.662;
 export const MAJOR_JACKPOT_UPGRADE_WHEEL_WEIGHT = 0.077;
 /** HATs removed from each Super Hat bonus strip vs normal hat-bonus density. */
 export const SUPER_HAT_HATS_REMOVED_PER_REEL = 5;
-/** Fraction of BONUS symbols kept on Super Buzz / Power Saw strips (vs free-spin). */
+/** Fraction of BONUS symbols kept on Super Flag Bonus strips (vs free-spin). */
 export const SUPER_BUZZ_SAW_BONUS_KEEP_FRACTION = 0.5;
 
 export type JackpotId = 'mini' | 'minor' | 'major' | 'grand';
@@ -156,7 +154,7 @@ export const HAT_CELL_HIGHLIGHT_COLORS: Record<HatCellColor, number> = {
 
 /**
  * Live line-hit scale. Line wins pay this percent of `paytable` × bet.
- * Scatter, hat prizes, and jackpots are unscaled. Test Mode can override.
+ * Scatter, crown prizes, and jackpots are unscaled. Test Mode can override.
  */
 export const DEFAULT_LINE_HIT_PAYOUT_PERCENT = 50;
 

@@ -4,7 +4,6 @@ import {
   MANSIONS_WHEEL_WEIGHT,
   SUPER_BUZZ_SAW_WHEEL_WEIGHT,
   SUPER_HAT_WHEEL_WEIGHT,
-  SUPER_POWER_SAW_WHEEL_WEIGHT,
   UPGRADE_WHEEL_WEIGHT,
   type JackpotId,
 } from './config';
@@ -14,8 +13,6 @@ export type BonusWheelOutcome =
   | { type: 'freeSpins'; count: number }
   | { type: 'buzzSaw' }
   | { type: 'superBuzzSaw' }
-  | { type: 'powerSaw' }
-  | { type: 'superPowerSaw' }
   | { type: 'megaHat' }
   | { type: 'ultraHat' }
   | { type: 'superHat' }
@@ -49,18 +46,10 @@ const BONUS_WHEEL_UNIQUE_SECTIONS: BonusWheelSection[] = [
     weight: 1.1,
   },
   {
-    id: 'power-saw',
-    label: 'Power-Saw',
-    color: '#047857',
-    imageSrc: '/symbols/bonus.png',
-    outcome: { type: 'powerSaw' },
-    weight: 1.1,
-  },
-  {
     id: 'mega-hat',
-    label: 'Mega Hat',
+    label: 'Mega Crown',
     color: '#ca8a04',
-    imageSrc: '/symbols/hardhat.png',
+    imageSrc: '/symbols/hat.png',
     outcome: { type: 'megaHat' },
     weight: 1.45,
   },
@@ -119,26 +108,18 @@ const UPGRADE_WHEEL_UNIQUE_SECTIONS: BonusWheelSection[] = [
     weight: SUPER_BUZZ_SAW_WHEEL_WEIGHT,
   },
   {
-    id: 'super-power-saw',
-    label: 'Super Power Saw',
-    color: '#065f46',
-    imageSrc: '/symbols/bonus.png',
-    outcome: { type: 'superPowerSaw' },
-    weight: SUPER_POWER_SAW_WHEEL_WEIGHT,
-  },
-  {
     id: 'super-hat',
-    label: 'Super Hat',
+    label: 'Super Crown',
     color: '#7c3aed',
-    imageSrc: '/symbols/hardhat.png',
+    imageSrc: '/symbols/hat.png',
     outcome: { type: 'superHat' },
     weight: SUPER_HAT_WHEEL_WEIGHT,
   },
   {
     id: 'ultra-hat',
-    label: 'Ultra Hat',
+    label: 'Ultra Crown',
     color: '#0e7490',
-    imageSrc: '/symbols/hardhat.png',
+    imageSrc: '/symbols/hat.png',
     outcome: { type: 'ultraHat' },
     weight: 0.35,
   },
@@ -296,24 +277,16 @@ export function describeBonusWheelOutcome(
     return 'Super Flag Bonus';
   }
 
-  if (outcome.type === 'powerSaw') {
-    return 'Power-Saw';
-  }
-
-  if (outcome.type === 'superPowerSaw') {
-    return 'Super Power Saw';
-  }
-
   if (outcome.type === 'megaHat') {
-    return 'Mega Hat';
+    return 'Mega Crown';
   }
 
   if (outcome.type === 'superHat') {
-    return 'Super Hat';
+    return 'Super Crown';
   }
 
   if (outcome.type === 'ultraHat') {
-    return 'Ultra Hat';
+    return 'Ultra Crown';
   }
 
   if (outcome.type === 'mansions') {

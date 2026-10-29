@@ -32,7 +32,6 @@ import { spinReelsForcedBonus, spinReelsForcedHat } from './game/forcedSpin';
 import {
   applyHatBonusSpin,
   applyPowerSawPaint,
-  buildPowerSawInitialState,
   buildTallBonusIntroGrid,
   createHatBonusState,
   describeHatBonusMode,
@@ -46,7 +45,6 @@ import {
   isTallBonusMode,
   resolveHatBonusPrizes,
   sortBonusPositionsReadingOrder,
-  sortBonusPositionsRightmostFirst,
   type HatBonusCell,
   type HatBonusMode,
   type HatBonusState,
@@ -174,7 +172,7 @@ function formatSpinResult(
   }
 
   if (includeHatTrigger && evaluation.hatTrigger) {
-    parts.push(`HAT x${evaluation.hatTrigger.count} — Hat Bonus!`);
+    parts.push(`Crown x${evaluation.hatTrigger.count} — Crown Bonus!`);
   }
 
   if (parts.length === 0) {
@@ -235,7 +233,7 @@ export function getSpinLabel() {
     return 'SPINNING...';
   }
   if (usingHatBonus()) {
-    return 'HAT SPIN';
+    return 'CROWN SPIN';
   }
   if (usingFreeSpin()) {
     return 'FREE SPIN';
@@ -379,22 +377,8 @@ async function startMegaHatSession(betAmount: number, tall = false) {
 async function paintSweepCells(
   starts: GridPosition[],
   mode: HatBonusMode,
-  kind: 'power' | 'buzz',
   existing: HatBonusCell[] = []
 ) {
-  if (kind === 'power') {
-    let cells: HatBonusCell[] = [];
-    for (const start of sortBonusPositionsRightmostFirst(starts)) {
-      for (let reel = start.reel; reel < REEL_COUNT; reel++) {
-        cells = applyPowerSawPaint(cells, { reel, row: start.row }, mode);
-        paintGrid(displayGrid, cells);
-        await delay(POWER_SAW_STEP_MS);
-      }
-      await delay(POWER_SAW_SWEEP_GAP_MS);
-    }
-    return cells;
-  }
-
   let cells = existing;
   const rowCount = getHatBonusRowCount(mode);
   for (const start of sortBonusPositionsReadingOrder(starts)) {
@@ -407,47 +391,6 @@ async function paintSweepCells(
     await delay(POWER_SAW_SWEEP_GAP_MS);
   }
   return cells;
-}
-
-async function startPowerSawSession(
-  grid: SymbolId[][],
-  betAmount: number,
-  mode: Extract<HatBonusMode, 'powerSaw' | 'superPowerSaw'>,
-  stops: number[],
-  isFreeSpin: boolean
-) {
-  revealing = true;
-  const triggerPositions = findBonusPositions(grid);
-  setStatus(`${describeHatBonusMode(mode)} — charging...`);
-  syncUi();
-
-  try {
-    if (mode === 'superPowerSaw') {
-      setActiveRows(SUPER_HAT_ROWS);
-      displayGrid = buildTallBonusIntroGrid(grid, stops, isFreeSpin);
-      paintGrid(displayGrid);
-    }
-    const starts =
-      mode === 'superPowerSaw'
-        ? expandBonusPositionsForTallGrid(triggerPositions)
-        : triggerPositions;
-    const cells = await paintSweepCells(starts, mode, 'power');
-    const powerState = buildPowerSawInitialState(
-      triggerPositions,
-      betAmount,
-      HAT_BONUS_FREE_SPINS,
-      mode,
-      undefined,
-      state.denomination
-    );
-    powerState.cells = cells;
-    writeHatBonus(powerState, true);
-    paintGrid(displayGrid, powerState.cells);
-    return powerState;
-  } finally {
-    revealing = false;
-    syncUi();
-  }
 }
 
 async function startBuzzSawSession(
@@ -472,7 +415,7 @@ async function startBuzzSawSession(
       mode === 'superBuzzSaw'
         ? expandBonusPositionsForTallGrid(triggerPositions)
         : triggerPositions;
-    const cells = await paintSweepCells(starts, mode, 'buzz');
+    const cells = await paintSweepCells(starts, mode);
     const buzzState: HatBonusState = {
       bet: betAmount,
       denomination: state.denomination,
@@ -683,8 +626,6 @@ export async function runSpin() {
   const isBuzzSawSpin = isHatBonusSpin && isBuzzSawBonusMode(activeHat?.mode);
   const isSuperBuzzSawSpin =
     isHatBonusSpin && activeHat?.mode === 'superBuzzSaw';
-  const isSuperPowerSawSpin =
-    isHatBonusSpin && activeHat?.mode === 'superPowerSaw';
   const isSuperHatSpin = isHatBonusSpin && activeHat?.mode === 'superHat';
   const isTallBonusSpin = isHatBonusSpin && isTallBonusMode(activeHat?.mode);
   const keepsBonus = isHatBonusSpin && isBonusKeepingMode(activeHat?.mode);
@@ -738,7 +679,6 @@ export async function runSpin() {
       isBuzzSaw: isBuzzSawSpin && !isSuperBuzzSawSpin,
       isSuperHat: isSuperHatSpin,
       isSuperBuzzSaw: isSuperBuzzSawSpin,
-      isSuperPowerSaw: isSuperPowerSawSpin,
       rowCount: hatRowCount,
     };
 
@@ -751,8 +691,7 @@ export async function runSpin() {
         spinOptions.isBuzzSaw,
         hatRowCount,
         isSuperHatSpin,
-        isSuperBuzzSawSpin,
-        isSuperPowerSawSpin
+        isSuperBuzzSawSpin
       );
     } else if (forced === 'hat') {
       result = spinReelsForcedHat(
@@ -762,8 +701,7 @@ export async function runSpin() {
         spinOptions.isBuzzSaw,
         hatRowCount,
         isSuperHatSpin,
-        isSuperBuzzSawSpin,
-        isSuperPowerSawSpin
+        isSuperBuzzSawSpin
       );
     } else {
       result = spinReels(spinOptions);
@@ -846,7 +784,6 @@ export async function runSpin() {
       paintGrid(displayGrid, hatSpinResult.state.cells, paylinePositions);
 
       let buzzCutCount = 0;
-      let powerCutCount = 0;
       if (isBuzzSawBonusMode(state.hatBonus?.mode)) {
         const bonusPositions = findBonusPositions(result.grid);
         if (bonusPositions.length > 0 && state.hatBonus) {
@@ -854,22 +791,7 @@ export async function runSpin() {
           const painted = await paintSweepCells(
             bonusPositions,
             state.hatBonus.mode ?? 'buzzSaw',
-            'buzz',
             state.hatBonus.cells
-          );
-          writeHatBonus({ ...state.hatBonus, cells: painted });
-          paintGrid(displayGrid, painted, paylinePositions);
-        }
-      } else if (state.hatBonus?.mode === 'superPowerSaw') {
-        const bonusPositions = sortBonusPositionsRightmostFirst(
-          findBonusPositions(result.grid)
-        );
-        if (bonusPositions.length > 0) {
-          powerCutCount = bonusPositions.length;
-          const painted = await paintSweepCells(
-            bonusPositions,
-            'superPowerSaw',
-            'power'
           );
           writeHatBonus({ ...state.hatBonus, cells: painted });
           paintGrid(displayGrid, painted, paylinePositions);
@@ -923,10 +845,6 @@ export async function runSpin() {
         }
       } else if (buzzCutCount > 0) {
         extras.push(`${buzzCutCount} flag${buzzCutCount === 1 ? '' : 's'}`);
-      } else if (powerCutCount > 0) {
-        extras.push(
-          `${powerCutCount} power cut${powerCutCount === 1 ? '' : 's'}`
-        );
       }
 
       if (hatSpinResult.extraSpinAwarded) {
@@ -934,7 +852,7 @@ export async function runSpin() {
       }
       if (hatSpinResult.redirects.length > 0) {
         extras.push(
-          `${hatSpinResult.redirects.length} hat move${hatSpinResult.redirects.length === 1 ? '' : 's'}`
+          `${hatSpinResult.redirects.length} crown move${hatSpinResult.redirects.length === 1 ? '' : 's'}`
         );
       }
       if (hatSpinResult.blueHitPayout > 0) {
@@ -944,7 +862,7 @@ export async function runSpin() {
       }
       if (hatSpinResult.upgradedPositions.length > 0) {
         extras.push(
-          `${hatSpinResult.upgradedPositions.length} hat upgrade${hatSpinResult.upgradedPositions.length === 1 ? '' : 's'}`
+          `${hatSpinResult.upgradedPositions.length} crown upgrade${hatSpinResult.upgradedPositions.length === 1 ? '' : 's'}`
         );
       }
 
@@ -954,7 +872,7 @@ export async function runSpin() {
               formatSpinResult(evaluation, currentDenomination, {
                 includeHatTrigger: false,
               }),
-              `Hat: ${extras.join(', ')}`
+              `Crown: ${extras.join(', ')}`
             )
           : formatSpinResult(evaluation, currentDenomination, {
               includeHatTrigger: false,
@@ -1035,30 +953,6 @@ export async function runSpin() {
             formatSpinResult(evaluation, currentDenomination),
             `Wheel: ${describeBonusWheelOutcome(outcome, currentBetTier)} ${formatPrize(awarded.payout, currentDenomination)}`
           );
-        } else if (outcome.type === 'powerSaw' && !state.hatBonus) {
-          const powerSawState = await startPowerSawSession(
-            result.grid,
-            currentBet,
-            'powerSaw',
-            result.stops,
-            result.isFreeSpin
-          );
-          resultText = joinSpinStatus(
-            formatSpinResult(evaluation, currentDenomination),
-            `Wheel: Power-Saw — ${powerSawState.spinsRemaining} free spins`
-          );
-        } else if (outcome.type === 'superPowerSaw' && !state.hatBonus) {
-          const superPower = await startPowerSawSession(
-            result.grid,
-            currentBet,
-            'superPowerSaw',
-            result.stops,
-            result.isFreeSpin
-          );
-          resultText = joinSpinStatus(
-            formatSpinResult(evaluation, currentDenomination),
-            `Wheel: Super Power Saw — ${superPower.spinsRemaining} free spins`
-          );
         } else if (outcome.type === 'buzzSaw' && !state.hatBonus) {
           const buzz = await startBuzzSawSession(
             result.grid,
@@ -1087,13 +981,13 @@ export async function runSpin() {
           const mega = await startMegaHatSession(currentBet);
           resultText = joinSpinStatus(
             formatSpinResult(evaluation, currentDenomination),
-            `Wheel: Mega Hat — ${mega.spinsRemaining} free spins`
+            `Wheel: Mega Crown — ${mega.spinsRemaining} free spins`
           );
         } else if (outcome.type === 'superHat' && !state.hatBonus) {
           const superHat = await startMegaHatSession(currentBet, true);
           resultText = joinSpinStatus(
             formatSpinResult(evaluation, currentDenomination),
-            `Wheel: Super Hat — ${superHat.spinsRemaining} free spins`
+            `Wheel: Super Crown — ${superHat.spinsRemaining} free spins`
           );
         } else if (
           (outcome.type === 'ultraHat' || outcome.type === 'mansions') &&
@@ -1118,7 +1012,7 @@ export async function runSpin() {
         );
         resultText = joinSpinStatus(
           formatSpinResult(evaluation, currentDenomination),
-          `Hat Bonus started — ${hatState.spinsRemaining} free spins`
+          `Crown Bonus started — ${hatState.spinsRemaining} free spins`
         );
       }
 
@@ -1233,7 +1127,6 @@ export function initPlay() {
     const fresh = spinReels({
       isSuperHat: state.hatBonus.mode === 'superHat',
       isSuperBuzzSaw: state.hatBonus.mode === 'superBuzzSaw',
-      isSuperPowerSaw: state.hatBonus.mode === 'superPowerSaw',
       isFreeSpin: true,
       rowCount: SUPER_HAT_ROWS,
     });

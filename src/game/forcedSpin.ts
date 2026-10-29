@@ -55,7 +55,6 @@ function buildSpinResult(
   isBuzzSaw = false,
   isSuperHat = false,
   isSuperBuzzSaw = false,
-  isSuperPowerSaw = false,
   rowCount?: number
 ): SpinResult {
   return {
@@ -69,7 +68,6 @@ function buildSpinResult(
     isBuzzSaw,
     isSuperHat,
     isSuperBuzzSaw,
-    isSuperPowerSaw,
   };
 }
 
@@ -82,7 +80,6 @@ function findStopsWithMinCount(
   isBuzzSaw = false,
   isSuperHat = false,
   isSuperBuzzSaw = false,
-  isSuperPowerSaw = false,
   rowCount?: number
 ): SpinResult | null {
   const reelSet = getReelSet(
@@ -91,8 +88,7 @@ function findStopsWithMinCount(
     isUltraHat,
     isBuzzSaw,
     isSuperHat,
-    isSuperBuzzSaw,
-    isSuperPowerSaw
+    isSuperBuzzSaw
   );
 
   for (let attempt = 0; attempt < RANDOM_STOP_ATTEMPTS; attempt++) {
@@ -114,7 +110,6 @@ function findStopsWithMinCount(
         isBuzzSaw,
         isSuperHat,
         isSuperBuzzSaw,
-        isSuperPowerSaw,
         rowCount
       );
     }
@@ -175,7 +170,6 @@ function findStopsWithMinCount(
     isBuzzSaw,
     isSuperHat,
     isSuperBuzzSaw,
-    isSuperPowerSaw,
     rowCount
   );
 }
@@ -187,8 +181,7 @@ export function spinReelsForcedBonus(
   isBuzzSaw = false,
   rowCount?: number,
   isSuperHat = false,
-  isSuperBuzzSaw = false,
-  isSuperPowerSaw = false
+  isSuperBuzzSaw = false
 ): SpinResult {
   return (
     findStopsWithMinCount(
@@ -201,7 +194,6 @@ export function spinReelsForcedBonus(
       isBuzzSaw,
       isSuperHat,
       isSuperBuzzSaw,
-      isSuperPowerSaw,
       rowCount
     ) ??
     spinReels({
@@ -211,7 +203,6 @@ export function spinReelsForcedBonus(
       isBuzzSaw,
       isSuperHat,
       isSuperBuzzSaw,
-      isSuperPowerSaw,
       rowCount,
     })
   );
@@ -224,8 +215,7 @@ export function spinReelsForcedHat(
   isBuzzSaw = false,
   rowCount?: number,
   isSuperHat = false,
-  isSuperBuzzSaw = false,
-  isSuperPowerSaw = false
+  isSuperBuzzSaw = false
 ): SpinResult {
   return (
     findStopsWithMinCount(
@@ -237,7 +227,6 @@ export function spinReelsForcedHat(
       isBuzzSaw,
       isSuperHat,
       isSuperBuzzSaw,
-      isSuperPowerSaw,
       rowCount
     ) ??
     spinReels({
@@ -247,7 +236,6 @@ export function spinReelsForcedHat(
       isBuzzSaw,
       isSuperHat,
       isSuperBuzzSaw,
-      isSuperPowerSaw,
       rowCount,
     })
   );

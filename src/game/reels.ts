@@ -341,8 +341,8 @@ function removeBonusFromReel(reel: Reel, count: number): Reel {
 }
 
 /**
- * Super Buzz / Power Saw: keep BONUS (at half free-spin density) and thin HATs
- * by the same per-reel count as Super Hat.
+ * Super Flag Bonus: keep BONUS (at half free-spin density) and thin crowns
+ * by the same per-reel count as Super Crown.
  */
 function buildSuperBuzzSawReels(
   source: Reel[],
@@ -372,7 +372,7 @@ export const freeSpinReels: Reel[] = Array.from(
   () => generateReel(WILDS_PER_REEL + FREE_SPIN_EXTRA_WILDS_PER_REEL)
 );
 
-/** Free-spin strips with BONUS replaced by HAT for hat / Power-Saw bonuses. */
+/** Free-spin strips with BONUS replaced by HAT for crown bonuses. */
 export const hatBonusReels: Reel[] = freeSpinReels.map((reel) =>
   reel.map((symbol) => (symbol === 'BONUS' ? 'HAT' : symbol))
 );
@@ -455,15 +455,14 @@ export function getReelSet(
   isUltraHat = false,
   isBuzzSaw = false,
   isSuperHat = false,
-  isSuperBuzzSaw = false,
-  isSuperPowerSaw = false
+  isSuperBuzzSaw = false
 ): Reel[] {
   if (isUltraHat) {
     return ultraHatBonusReels;
   }
 
-  // Super Buzz / Power Saw keep BONUS but at half free-spin density.
-  if (isSuperBuzzSaw || isSuperPowerSaw) {
+  // Super Flag Bonus keeps BONUS but at half free-spin density.
+  if (isSuperBuzzSaw) {
     return superBuzzSawReels;
   }
 

@@ -19,7 +19,7 @@ import {
   type HatCellColor,
   type JackpotId,
 } from './game/config';
-import type { HatBonusCell } from './game/hatBonus';
+import { describeHatBonusMode, type HatBonusCell } from './game/hatBonus';
 import {
   formatDenomination,
   formatMoney,
@@ -442,8 +442,7 @@ export function animateReels(
     result.isUltraHat,
     result.isBuzzSaw,
     result.isSuperHat,
-    result.isSuperBuzzSaw,
-    result.isSuperPowerSaw
+    result.isSuperBuzzSaw
   );
   const plans = result.stops.map((toStop, reel) => {
     const fromStop = fromStops[reel] ?? toStop;
@@ -588,7 +587,7 @@ export function updateHud() {
     const parts: string[] = [];
     if (state.hatBonus) {
       parts.push(
-        `${state.hatBonus.mode ?? 'hat'} · ${state.hatBonus.spinsRemaining} spins`
+        `${describeHatBonusMode(state.hatBonus.mode)} · ${state.hatBonus.spinsRemaining} spins`
       );
     }
     if (state.freeSpinsRemaining > 0) {
@@ -801,12 +800,12 @@ export function showPaytable() {
     .join('');
 
   body.innerHTML = `
-    <p>Line hits pay 50% of the paytable × bet. Scatter, hat prizes, and jackpots are unscaled.</p>
+    <p>Line hits pay 50% of the paytable × bet. Scatter, crown prizes, and jackpots are unscaled.</p>
     <table><thead><tr><th>Symbol</th><th>3</th><th>4</th><th>5</th></tr></thead><tbody>${lineRows}</tbody></table>
     <h3>BONUS scatter</h3>
     <table><tbody>${scatter}</tbody></table>
-    <h3>Hat bonus</h3>
-    <p>${HAT_TRIGGER_COUNT}+ HAT starts 6 free spins. End prizes ${formatWin(
+    <h3>Crown bonus</h3>
+    <p>${HAT_TRIGGER_COUNT}+ crowns start 6 free spins. End prizes ${formatWin(
       snapToDenomination(HAT_CELL_PRIZE_RANGES.yellow[0] * bet, denomination),
       denomination
     )}–${formatWin(

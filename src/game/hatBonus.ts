@@ -30,8 +30,6 @@ import {
 
 export type HatBonusMode =
   | 'hat'
-  | 'powerSaw'
-  | 'superPowerSaw'
   | 'megaHat'
   | 'ultraHat'
   | 'superHat'
@@ -229,19 +227,6 @@ export function findBonusPositions(grid: SymbolId[][]): GridPosition[] {
   return findSymbolPositions(grid, 'BONUS');
 }
 
-/** Right-most first, then top-to-bottom for ties. */
-export function sortBonusPositionsRightmostFirst(
-  positions: GridPosition[]
-): GridPosition[] {
-  return [...positions].sort((left, right) => {
-    if (right.reel !== left.reel) {
-      return right.reel - left.reel;
-    }
-
-    return left.row - right.row;
-  });
-}
-
 export function evaluateHatTrigger(
   grid: SymbolId[][]
 ): HatTriggerResult | null {
@@ -304,16 +289,12 @@ export function upgradeHatCellColor(
 
 export function describeHatBonusMode(mode: HatBonusMode | undefined): string {
   switch (mode) {
-    case 'powerSaw':
-      return 'Power-Saw';
-    case 'superPowerSaw':
-      return 'Super Power Saw';
     case 'megaHat':
-      return 'Mega Hat';
+      return 'Mega Crown';
     case 'ultraHat':
-      return 'Ultra Hat';
+      return 'Ultra Crown';
     case 'superHat':
-      return 'Super Hat';
+      return 'Super Crown';
     case 'mansions':
       return 'Mansions';
     case 'buzzSaw':
@@ -321,7 +302,7 @@ export function describeHatBonusMode(mode: HatBonusMode | undefined): string {
     case 'superBuzzSaw':
       return 'Super Flag Bonus';
     default:
-      return 'Hat Bonus';
+      return 'Crown Bonus';
   }
 }
 
@@ -330,26 +311,17 @@ export function isBuzzSawBonusMode(mode?: HatBonusMode): boolean {
   return mode === 'buzzSaw' || mode === 'superBuzzSaw';
 }
 
-/** True for Power-Saw and Super Power Saw (rightward BONUS paints). */
-export function isPowerSawBonusMode(mode?: HatBonusMode): boolean {
-  return mode === 'powerSaw' || mode === 'superPowerSaw';
-}
-
 /**
  * Features that keep BONUS on the strips and count BONUS toward extra spins /
- * mid-feature paints (Flag Bonus family + Super Power Saw).
+ * mid-feature paints (Flag Bonus family).
  */
 export function isBonusKeepingMode(mode?: HatBonusMode): boolean {
-  return isBuzzSawBonusMode(mode) || mode === 'superPowerSaw';
+  return isBuzzSawBonusMode(mode);
 }
 
-/** True for features that use the 6-row window and Super Hat paylines. */
+/** True for features that use the 6-row window and Super Crown paylines. */
 export function isTallBonusMode(mode?: HatBonusMode): boolean {
-  return (
-    mode === 'superHat' ||
-    mode === 'superBuzzSaw' ||
-    mode === 'superPowerSaw'
-  );
+  return mode === 'superHat' || mode === 'superBuzzSaw';
 }
 
 export function getHatBonusRowCount(mode?: HatBonusMode): number {
@@ -439,7 +411,7 @@ export function expandBonusPositionsForTallGrid(
 }
 
 /**
- * Build the 6-row intro grid for Super Buzz / Power Saw: keep the triggering
+ * Build the 6-row intro grid for Super Flag Bonus: keep the triggering
  * 3-row window pinned to the top, fill the lower rows from the strip (with any
  * strip BONUS removed), then place only the mirrored copies of the trigger
  * BONUS symbols so originals + duplicates are the sole BONUS on screen.
@@ -527,7 +499,7 @@ export function buildBuzzSawInitialState(
 export function applyPowerSawPaint(
   cells: HatBonusCell[],
   position: GridPosition,
-  mode: HatBonusMode = 'powerSaw'
+  mode: HatBonusMode = 'hat'
 ): HatBonusCell[] {
   const key = positionKey(position);
   const existing = cells.find((cell) => positionKey(cell) === key);
@@ -545,40 +517,6 @@ export function applyPowerSawPaint(
   }
 
   return cells.map((cell) => (positionKey(cell) === key ? nextCell : cell));
-}
-
-/**
- * Instant Power-Saw setup: each BONUS paints its cell and every cell to its
- * right on the same row (right-most BONUS first so overlaps stack upgrades).
- */
-export function buildPowerSawInitialState(
-  bonusPositions: GridPosition[],
-  bet: number,
-  freeSpins = HAT_BONUS_FREE_SPINS,
-  mode: Extract<HatBonusMode, 'powerSaw' | 'superPowerSaw'> = 'powerSaw',
-  reelCount = REEL_COUNT,
-  denomination: number = DEFAULT_DENOMINATION
-): HatBonusState {
-  const starts =
-    mode === 'superPowerSaw'
-      ? expandBonusPositionsForTallGrid(bonusPositions)
-      : bonusPositions;
-  let cells: HatBonusCell[] = [];
-
-  for (const bonus of sortBonusPositionsRightmostFirst(starts)) {
-    for (let reel = bonus.reel; reel < reelCount; reel++) {
-      cells = applyPowerSawPaint(cells, { reel, row: bonus.row }, mode);
-    }
-  }
-
-  return {
-    bet,
-    denomination,
-    spinsRemaining: freeSpins,
-    cells,
-    blueHitPayout: 0,
-    mode,
-  };
 }
 
 /**

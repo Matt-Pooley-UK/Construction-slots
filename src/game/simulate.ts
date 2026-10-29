@@ -3,9 +3,7 @@ import { evaluateSpin } from './evaluate';
 import {
   applyFlagAdvances,
   applyHatBonusSpin,
-  applyPowerSawPaint,
   buildBuzzSawInitialState,
-  buildPowerSawInitialState,
   createHatBonusState,
   describeHatBonusMode,
   findBonusPositions,
@@ -13,7 +11,6 @@ import {
   isBonusKeepingMode,
   isBuzzSawBonusMode,
   resolveHatBonusPrizes,
-  sortBonusPositionsRightmostFirst,
   type HatBonusState,
 } from './hatBonus';
 import { getJackpotPayout } from './jackpots';
@@ -29,7 +26,7 @@ import {
   pickBonusWheelSectionIndex,
 } from './bonusWheel';
 import { formatMoneyRange, roundMoney } from './money';
-import { DEFAULT_DENOMINATION, SUPER_HAT_ROWS, REEL_COUNT } from './config';
+import { DEFAULT_DENOMINATION, SUPER_HAT_ROWS } from './config';
 import {
   cellsCoveredByMegaHat,
   pickMegaHatSize,
@@ -339,7 +336,6 @@ function simulateHatBonusSession(
   const isBuzzSaw = isBuzzSawBonusMode(initialState.mode);
   const isSuperHat = initialState.mode === 'superHat';
   const isSuperBuzzSaw = initialState.mode === 'superBuzzSaw';
-  const isSuperPowerSaw = initialState.mode === 'superPowerSaw';
   const rowCount = getHatBonusRowCount(initialState.mode);
 
   while (state.spinsRemaining > 0 && safety < 200) {
@@ -351,7 +347,6 @@ function simulateHatBonusSession(
       isBuzzSaw: isBuzzSaw && !isSuperBuzzSaw,
       isSuperHat,
       isSuperBuzzSaw,
-      isSuperPowerSaw,
       rowCount,
     });
     const spinResult = applyHatBonusSpin(state, grid);
@@ -367,21 +362,6 @@ function simulateHatBonusSession(
           rowCount
         ),
       };
-    } else if (isSuperPowerSaw) {
-      const bonusPositions = sortBonusPositionsRightmostFirst(
-        findBonusPositions(grid)
-      );
-      let cells = state.cells;
-      for (const start of bonusPositions) {
-        for (let reel = start.reel; reel < REEL_COUNT; reel++) {
-          cells = applyPowerSawPaint(
-            cells,
-            { reel, row: start.row },
-            'superPowerSaw'
-          );
-        }
-      }
-      state = { ...state, cells };
     }
   }
 
@@ -480,10 +460,6 @@ export function simulatePaidSpins(
       'buzzSaw',
       describeHatBonusMode('buzzSaw')
     ),
-    powerSaw: createBonusTypeAccumulator(
-      'powerSaw',
-      describeHatBonusMode('powerSaw')
-    ),
     megaHat: createBonusTypeAccumulator(
       'megaHat',
       describeHatBonusMode('megaHat')
@@ -495,16 +471,12 @@ export function simulatePaidSpins(
     miniJackpot: createBonusTypeAccumulator('miniJackpot', 'Mini Jackpot'),
     minorJackpot: createBonusTypeAccumulator('minorJackpot', 'Minor Jackpot'),
     grandJackpot: createBonusTypeAccumulator('grandJackpot', 'Grand Jackpot'),
-    naturalHat: createBonusTypeAccumulator('naturalHat', 'Natural Hat Bonus'),
+    naturalHat: createBonusTypeAccumulator('naturalHat', 'Natural Crown Bonus'),
   };
   const upgradeBonusTypeStats = {
     superBuzzSaw: createBonusTypeAccumulator(
       'superBuzzSaw',
       describeHatBonusMode('superBuzzSaw')
-    ),
-    superPowerSaw: createBonusTypeAccumulator(
-      'superPowerSaw',
-      describeHatBonusMode('superPowerSaw')
     ),
     superHat: createBonusTypeAccumulator(
       'superHat',
@@ -596,38 +568,6 @@ export function simulatePaidSpins(
         } else {
           recordBonusTypeWin(bonusTypeStats, jackpotStatId, spinHatBonusPayout);
         }
-      } else if (wheelSection.outcome.type === 'powerSaw') {
-        spinHatBonusPayout = simulateHatBonusSession(pool,
-          buildPowerSawInitialState(
-            findBonusPositions(grid),
-            bet,
-            undefined,
-            'powerSaw',
-            undefined,
-            denomination
-          )
-        );
-        hatBonusPayout += spinHatBonusPayout;
-        incrementWinFrequency(hatBonusWinFrequency, spinHatBonusPayout);
-        recordBonusTypeWin(bonusTypeStats, 'powerSaw', spinHatBonusPayout);
-      } else if (wheelSection.outcome.type === 'superPowerSaw') {
-        spinHatBonusPayout = simulateHatBonusSession(pool,
-          buildPowerSawInitialState(
-            findBonusPositions(grid),
-            bet,
-            undefined,
-            'superPowerSaw',
-            undefined,
-            denomination
-          )
-        );
-        hatBonusPayout += spinHatBonusPayout;
-        incrementWinFrequency(hatBonusWinFrequency, spinHatBonusPayout);
-        recordBonusTypeWin(
-          upgradeBonusTypeStats,
-          'superPowerSaw',
-          spinHatBonusPayout
-        );
       } else if (wheelSection.outcome.type === 'megaHat') {
         spinHatBonusPayout = simulateHatBonusSession(pool,
           createHatBonusState(

@@ -11,7 +11,6 @@ export interface SpinResult {
   isBuzzSaw: boolean;
   isSuperHat: boolean;
   isSuperBuzzSaw: boolean;
-  isSuperPowerSaw: boolean;
 }
 
 export interface SpinOptions {
@@ -21,7 +20,6 @@ export interface SpinOptions {
   isBuzzSaw?: boolean;
   isSuperHat?: boolean;
   isSuperBuzzSaw?: boolean;
-  isSuperPowerSaw?: boolean;
   /** Visible row count (defaults to base ROWS inside getVisibleSymbols). */
   rowCount?: number;
 }
@@ -34,8 +32,7 @@ export function buildGridFromStops(
   isBuzzSaw = false,
   rowCount?: number,
   isSuperHat = false,
-  isSuperBuzzSaw = false,
-  isSuperPowerSaw = false
+  isSuperBuzzSaw = false
 ): SymbolId[][] {
   const reelSet = getReelSet(
     isFreeSpin,
@@ -43,8 +40,7 @@ export function buildGridFromStops(
     isUltraHat,
     isBuzzSaw,
     isSuperHat,
-    isSuperBuzzSaw,
-    isSuperPowerSaw
+    isSuperBuzzSaw
   );
 
   return reelSet.map((reel, index) =>
@@ -60,7 +56,6 @@ function buildSpinResult(
   isBuzzSaw: boolean,
   isSuperHat: boolean,
   isSuperBuzzSaw: boolean,
-  isSuperPowerSaw: boolean,
   rowCount?: number
 ): SpinResult {
   return {
@@ -73,8 +68,7 @@ function buildSpinResult(
       isBuzzSaw,
       rowCount,
       isSuperHat,
-      isSuperBuzzSaw,
-      isSuperPowerSaw
+      isSuperBuzzSaw
     ),
     isFreeSpin,
     isHatBonus,
@@ -82,7 +76,6 @@ function buildSpinResult(
     isBuzzSaw,
     isSuperHat,
     isSuperBuzzSaw,
-    isSuperPowerSaw,
   };
 }
 
@@ -93,7 +86,6 @@ export function spinReels(options: SpinOptions = {}): SpinResult {
   const isBuzzSaw = options.isBuzzSaw ?? false;
   const isSuperHat = options.isSuperHat ?? false;
   const isSuperBuzzSaw = options.isSuperBuzzSaw ?? false;
-  const isSuperPowerSaw = options.isSuperPowerSaw ?? false;
   const rowCount = options.rowCount;
   const stops = getReelSet(
     isFreeSpin,
@@ -101,8 +93,7 @@ export function spinReels(options: SpinOptions = {}): SpinResult {
     isUltraHat,
     isBuzzSaw,
     isSuperHat,
-    isSuperBuzzSaw,
-    isSuperPowerSaw
+    isSuperBuzzSaw
   ).map(() => Math.floor(Math.random() * REEL_LENGTH));
 
   return buildSpinResult(
@@ -113,7 +104,6 @@ export function spinReels(options: SpinOptions = {}): SpinResult {
     isBuzzSaw,
     isSuperHat,
     isSuperBuzzSaw,
-    isSuperPowerSaw,
     rowCount
   );
 }

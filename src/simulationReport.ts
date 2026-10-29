@@ -353,10 +353,10 @@ export function renderSimulationReport(result: SimulationResult): string {
         )}
         ${statRow(
           'Bonuses during free spins',
-          `${freeSpinBonuses.toLocaleString()} (${result.freeSpinRetriggerHits.toLocaleString()} retriggers, ${result.freeSpinHatBonusHits.toLocaleString()} hat)`
+          `${freeSpinBonuses.toLocaleString()} (${result.freeSpinRetriggerHits.toLocaleString()} retriggers, ${result.freeSpinHatBonusHits.toLocaleString()} crown)`
         )}
         ${statRow(
-          'Hat bonus hits',
+          'Crown bonus hits',
           `${result.hatBonusHits.toLocaleString()} (${percentOf(result.hatBonusHits, result.spinCount)}% of paid spins)`
         )}
         ${statRow(
@@ -375,10 +375,10 @@ export function renderSimulationReport(result: SimulationResult): string {
     <div class="sim-charts">
       ${spinsHistogram(result.spinsBetweenBonusFrequency)}
       ${winHistogram(
-        'Hat bonus win amounts',
+        'Crown bonus win amounts',
         result.hatBonusWinFrequency,
         result.bet,
-        'No hat bonus wins in this simulation.',
+        'No crown bonus wins in this simulation.',
         'linear-gradient(180deg, #c084fc 0%, #7c3aed 100%)'
       )}
       ${winHistogram(
