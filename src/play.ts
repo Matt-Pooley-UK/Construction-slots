@@ -70,6 +70,7 @@ import {
   simulatePaidSpins,
 } from './game/simulate';
 import { spinReels, type SpinResult } from './game/spin';
+import { renderSimulationReport } from './simulationReport';
 import type { SymbolId } from './game/symbols';
 import {
   addFreeSpins,
@@ -1211,15 +1212,7 @@ export function runSimulation(spinCount: number) {
   out.textContent = `Running ${spinCount.toLocaleString()} spins...`;
   window.setTimeout(() => {
     const result = simulatePaidSpins(spinCount, state.bet, state.denomination);
-    out.textContent = [
-      `Pay rate ${result.payRate.toFixed(2)}%`,
-      `Wagered ${result.totalWagered.toFixed(2)} / returned ${result.totalPayout.toFixed(2)}`,
-      `Winning spins ${result.winningSpins.toLocaleString()} / ${result.spinCount.toLocaleString()}`,
-      `Bonus hits ${result.bonusHits.toLocaleString()} · hat ${result.hatBonusHits.toLocaleString()}`,
-      `Longest dead streak ${result.longestDeadSpinStreak}`,
-      `Avg spins between bonuses ${result.averageSpinsBetweenBonuses.toFixed(2)}`,
-      `Volatility median ${result.volatility.medianReturnMultiplier.toFixed(2)}x / avg ${result.volatility.averageReturnMultiplier.toFixed(2)}x`,
-    ].join('\n');
+    out.innerHTML = renderSimulationReport(result);
   }, 20);
 }
 
