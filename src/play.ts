@@ -599,7 +599,7 @@ async function playHatBonusReveal(hatState: HatBonusState): Promise<number> {
               .join(', ')}`
           : '';
       setStatus(
-        `${bonusLabel} — ${reveal.color} prizes ${formatPrize(reveal.payout, hatState.denomination, { creditsOnly: true })}${jackpotText}`
+        `${bonusLabel} — ${reveal.color} prizes ${formatPrize(reveal.payout, hatState.denomination)}${jackpotText}`
       );
       syncUi();
       if (index < result.reveals.length - 1) {
@@ -944,22 +944,21 @@ export async function runSpin() {
           );
         } else if (state.freeSpinSession.active) {
           setStatus(
-            `${bonusLabel} complete — ${formatPrize(totalWon, currentDenomination, { creditsOnly: true })} (Free spin won: ${formatPrize(state.freeSpinSession.totalWon, currentDenomination)})`
+            `${bonusLabel} complete — ${formatPrize(totalWon, currentDenomination)} (Free spin won: ${formatPrize(state.freeSpinSession.totalWon, currentDenomination)})`
           );
         } else {
           setStatus(
-            `${bonusLabel} complete — Total won: ${formatPrize(totalWon, currentDenomination, { creditsOnly: true })}`
+            `${bonusLabel} complete — Total won: ${formatPrize(totalWon, currentDenomination)}`
           );
         }
         resultText = joinSpinStatus(
           formatSpinResult(evaluation, currentDenomination, {
             includeHatTrigger: false,
           }),
-          `${bonusLabel} ${formatPrize(totalWon, currentDenomination, { creditsOnly: true })}`
+          `${bonusLabel} ${formatPrize(totalWon, currentDenomination)}`
         );
         showWin(totalWon, currentBet, {
           persist: true,
-          creditsOnly: true,
           denomination: currentDenomination,
         });
         hatBonusSessionCompleted = true;

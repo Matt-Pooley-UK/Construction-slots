@@ -289,7 +289,7 @@ export function drawGrid(
               getBetTierFromWager(state.denomination, state.bet),
               { uppercase: true }
             )
-          : String(Math.round(prize / state.denomination));
+          : formatMoney(prize);
         drawRevealValue(label, x, y, size);
       }
 
