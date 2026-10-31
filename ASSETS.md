@@ -34,9 +34,8 @@ Suggested theme: construction site (hard hat, tools, vehicles) on a high-contras
 
 | File | When |
 |------|------|
-| `stop.mp3` | Default reel stop |
-| `thunk.mp3` | Reel stop if the column shows a hat |
-| `kerchink.mp3` | Reel stop if the column shows BONUS (overrides hat) |
+| `chink.mp3` | Default reel stop |
+| `thunk.mp3` | Heavier reel stop when the column shows a bonus symbol or a crown |
 | `win.mp3` | Any cash award |
 | `spin.mp3` | Optional spin loop (unused in the prototype) |
 

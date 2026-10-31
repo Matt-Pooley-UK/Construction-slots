@@ -1,4 +1,4 @@
-import { playReelStop, playWin } from './audio';
+import { playReelStop, playWin, unlockAudio } from './audio';
 import { getBetTier, getBetTierFromWager } from './game/bets';
 import {
   BONUS_WHEEL_OUTCOMES,
@@ -666,6 +666,7 @@ export async function runSpin() {
   const forced = forcedSpin;
   forcedSpin = null;
   hatBonusSessionCompleted = false;
+  unlockAudio();
   setSpinning(true);
   hideBanner();
   setStatus('');
