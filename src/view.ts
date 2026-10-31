@@ -98,6 +98,7 @@ const BASE = import.meta.env.BASE_URL;
 let lastGrid: SymbolId[][] | null = null;
 let lastHatCells: HatBonusCell[] = [];
 let lastHighlights: { reel: number; row: number }[] = [];
+let lastWheel: { sections: BonusWheelSection[]; rotationDeg: number } | null = null;
 /** While an overlay animation is drawing, image loads replay that frame. */
 let frameOverride: (() => void) | null = null;
 
@@ -129,7 +130,12 @@ export function loadSymbolImages() {
         drawGrid(lastGrid, lastHatCells, lastHighlights);
       }
     };
-    img.onload = ready;
+    img.onload = () => {
+      ready();
+      if (lastWheel && !document.querySelector('#wheel')?.classList.contains('hidden')) {
+        drawWheel(lastWheel.sections, lastWheel.rotationDeg);
+      }
+    };
     img.src = `${BASE}symbols/${file}`;
     if (img.complete) {
       ready();
@@ -951,76 +957,367 @@ export function animateWheel(
   });
 }
 
-function drawWheelLabel(text: string, maxWidth: number) {
-  if (wheelCtx.measureText(text).width <= maxWidth) {
-    wheelCtx.fillText(text, 0, 0);
-    return;
-  }
+function drawWheelLabel(text: string, maxWidth: number, fontSize: number) {
+  wheelCtx.textAlign = 'center';
+  wheelCtx.textBaseline = 'middle';
   const words = text.split(' ');
-  if (words.length < 2) {
-    wheelCtx.fillText(text, 0, 0);
+  let size = fontSize;
+  let splitAt = 1;
+
+  const widthOf = (line: string) => {
+    wheelCtx.font = `bold ${size}px system-ui`;
+    return wheelCtx.measureText(line).width;
+  };
+
+  while (size > 13) {
+    if (words.length < 2) {
+      if (widthOf(text) <= maxWidth) {
+        break;
+      }
+    } else {
+      let narrowest = Infinity;
+      let best = 1;
+      for (let index = 1; index < words.length; index++) {
+        const width = Math.max(
+          widthOf(words.slice(0, index).join(' ')),
+          widthOf(words.slice(index).join(' '))
+        );
+        if (width < narrowest) {
+          narrowest = width;
+          best = index;
+        }
+      }
+      splitAt = best;
+      if (narrowest <= maxWidth) {
+        break;
+      }
+    }
+    size -= 1;
+  }
+
+  wheelCtx.font = `bold ${size}px system-ui`;
+  wheelCtx.lineJoin = 'round';
+  wheelCtx.lineWidth = Math.max(3, size * 0.14);
+  wheelCtx.strokeStyle = '#1a120c';
+  wheelCtx.fillStyle = '#f7f1e4';
+  const paint = (line: string, y: number) => {
+    wheelCtx.strokeText(line, 0, y);
+    wheelCtx.fillText(line, 0, y);
+  };
+  if (words.length < 2 || splitAt >= words.length) {
+    paint(text, 0);
     return;
   }
-  let splitAt = 1;
-  let narrowest = Infinity;
-  for (let index = 1; index < words.length; index++) {
-    const width = Math.max(
-      wheelCtx.measureText(words.slice(0, index).join(' ')).width,
-      wheelCtx.measureText(words.slice(index).join(' ')).width
-    );
-    if (width < narrowest) {
-      narrowest = width;
-      splitAt = index;
-    }
+  const gap = size * 0.58;
+  paint(words.slice(0, splitAt).join(' '), -gap);
+  paint(words.slice(splitAt).join(' '), gap);
+}
+
+function wheelArt(section: BonusWheelSection):
+  | { kind: 'image'; symbol: SymbolId; badge?: string }
+  | { kind: 'mansion' }
+  | { kind: 'coin'; tier: 'mini' | 'minor' | 'major' }
+  | { kind: 'free' }
+  | { kind: 'upgrade' } {
+  const outcome = section.outcome;
+  switch (outcome.type) {
+    case 'buzzSaw':
+      return { kind: 'image', symbol: 'BONUS' };
+    case 'superBuzzSaw':
+      return { kind: 'image', symbol: 'BONUS', badge: 'S' };
+    case 'megaHat':
+      return { kind: 'image', symbol: 'HAT' };
+    case 'superHat':
+      return { kind: 'image', symbol: 'HAT', badge: 'S' };
+    case 'ultraHat':
+      return { kind: 'image', symbol: 'HAT', badge: 'U' };
+    case 'mansions':
+      return { kind: 'mansion' };
+    case 'jackpot':
+      return {
+        kind: 'coin',
+        tier:
+          outcome.jackpot === 'major'
+            ? 'major'
+            : outcome.jackpot === 'minor'
+              ? 'minor'
+              : 'mini',
+      };
+    case 'freeSpins':
+      return { kind: 'free' };
+    case 'upgrade':
+      return { kind: 'upgrade' };
   }
-  wheelCtx.fillText(words.slice(0, splitAt).join(' '), 0, -6);
-  wheelCtx.fillText(words.slice(splitAt).join(' '), 0, 7);
+}
+
+function traceWheelIcon(size: number) {
+  wheelCtx.beginPath();
+  wheelCtx.roundRect(-size / 2, -size / 2, size, size, size * 0.16);
+}
+
+function drawWheelTile(symbol: SymbolId, size: number) {
+  const img = images[symbol];
+  wheelCtx.save();
+  traceWheelIcon(size);
+  wheelCtx.clip();
+  wheelCtx.fillStyle = '#1a120c';
+  wheelCtx.fillRect(-size / 2, -size / 2, size, size);
+  if (img && img.complete && img.naturalWidth > 0) {
+    wheelCtx.drawImage(img, -size / 2, -size / 2, size, size);
+  }
+  wheelCtx.restore();
+  wheelCtx.lineWidth = Math.max(2, size * 0.06);
+  wheelCtx.strokeStyle = '#f7f1e4';
+  traceWheelIcon(size);
+  wheelCtx.stroke();
+}
+
+function drawWheelBadge(label: string, size: number) {
+  const badge = size * 0.34;
+  const cx = size * 0.28;
+  const cy = -size * 0.28;
+  wheelCtx.beginPath();
+  wheelCtx.arc(cx, cy, badge * 0.55, 0, Math.PI * 2);
+  wheelCtx.fillStyle = '#1a120c';
+  wheelCtx.fill();
+  wheelCtx.lineWidth = Math.max(2, size * 0.04);
+  wheelCtx.strokeStyle = '#f6d36b';
+  wheelCtx.stroke();
+  wheelCtx.fillStyle = '#f7f1e4';
+  wheelCtx.font = `bold ${badge * 0.72}px system-ui`;
+  wheelCtx.textAlign = 'center';
+  wheelCtx.textBaseline = 'middle';
+  wheelCtx.fillText(label, cx, cy);
+}
+
+function drawWheelMansion(size: number) {
+  const w = size * 0.86;
+  const h = size * 0.78;
+  const left = -w / 2;
+  const top = -h / 2;
+  wheelCtx.fillStyle = '#f3e2c4';
+  wheelCtx.fillRect(left + w * 0.22, top + h * 0.42, w * 0.56, h * 0.5);
+  wheelCtx.fillRect(left + w * 0.02, top + h * 0.3, w * 0.24, h * 0.62);
+  wheelCtx.fillRect(left + w * 0.74, top + h * 0.3, w * 0.24, h * 0.62);
+  wheelCtx.fillStyle = '#7f1d1d';
+  const roof = (x: number, roofWidth: number, peak: number) => {
+    wheelCtx.beginPath();
+    wheelCtx.moveTo(x, top + h * 0.34);
+    wheelCtx.lineTo(x + roofWidth / 2, top + peak);
+    wheelCtx.lineTo(x + roofWidth, top + h * 0.34);
+    wheelCtx.closePath();
+    wheelCtx.fill();
+  };
+  roof(left, w * 0.28, h * 0.08);
+  roof(left + w * 0.72, w * 0.28, h * 0.08);
+  roof(left + w * 0.18, w * 0.64, h * 0.16);
+  wheelCtx.fillStyle = '#3b2414';
+  wheelCtx.fillRect(left + w * 0.42, top + h * 0.62, w * 0.16, h * 0.3);
+  wheelCtx.fillStyle = '#fde68a';
+  wheelCtx.fillRect(left + w * 0.3, top + h * 0.52, w * 0.1, h * 0.12);
+  wheelCtx.fillRect(left + w * 0.6, top + h * 0.52, w * 0.1, h * 0.12);
+  wheelCtx.fillRect(left + w * 0.08, top + h * 0.46, w * 0.1, h * 0.12);
+  wheelCtx.fillRect(left + w * 0.82, top + h * 0.46, w * 0.1, h * 0.12);
+}
+
+function drawWheelStar(radius: number) {
+  wheelCtx.beginPath();
+  for (let point = 0; point < 5; point++) {
+    const outer = -Math.PI / 2 + point * ((Math.PI * 2) / 5);
+    const inner = outer + Math.PI / 5;
+    wheelCtx.lineTo(Math.cos(outer) * radius, Math.sin(outer) * radius);
+    wheelCtx.lineTo(Math.cos(inner) * radius * 0.42, Math.sin(inner) * radius * 0.42);
+  }
+  wheelCtx.closePath();
+}
+
+function drawWheelCoin(tier: 'mini' | 'minor' | 'major', size: number) {
+  const radius = size * (tier === 'major' ? 0.48 : tier === 'minor' ? 0.44 : 0.4);
+  const center = tier === 'major' ? '#6b21a8' : tier === 'minor' ? '#075985' : '#3f6212';
+  wheelCtx.beginPath();
+  wheelCtx.arc(0, 0, radius, 0, Math.PI * 2);
+  wheelCtx.fillStyle = '#f8e7a2';
+  wheelCtx.fill();
+  wheelCtx.lineWidth = Math.max(3, size * 0.08);
+  wheelCtx.strokeStyle = '#6b3e09';
+  wheelCtx.stroke();
+  wheelCtx.beginPath();
+  wheelCtx.arc(0, 0, radius * 0.7, 0, Math.PI * 2);
+  wheelCtx.fillStyle = center;
+  wheelCtx.fill();
+  wheelCtx.fillStyle = '#f8e7a2';
+  drawWheelStar(radius * (tier === 'mini' ? 0.34 : 0.42));
+  wheelCtx.fill();
+}
+
+function drawWheelFree(size: number) {
+  traceWheelIcon(size * 0.92);
+  wheelCtx.fillStyle = '#f7f1e4';
+  wheelCtx.fill();
+  wheelCtx.lineWidth = Math.max(2, size * 0.05);
+  wheelCtx.strokeStyle = '#1a120c';
+  wheelCtx.stroke();
+  wheelCtx.fillStyle = '#1a120c';
+  wheelCtx.font = `bold ${size * 0.52}px system-ui`;
+  wheelCtx.textAlign = 'center';
+  wheelCtx.textBaseline = 'middle';
+  wheelCtx.fillText('8', 0, size * 0.02);
+}
+
+function drawWheelUpgrade(size: number) {
+  const radius = size * 0.42;
+  wheelCtx.beginPath();
+  wheelCtx.arc(0, 0, radius, 0, Math.PI * 2);
+  wheelCtx.fillStyle = '#f6d36b';
+  wheelCtx.fill();
+  wheelCtx.lineWidth = Math.max(2, size * 0.05);
+  wheelCtx.strokeStyle = '#1a120c';
+  wheelCtx.stroke();
+  wheelCtx.fillStyle = '#1a120c';
+  wheelCtx.beginPath();
+  wheelCtx.moveTo(0, -radius * 0.62);
+  wheelCtx.lineTo(radius * 0.46, radius * 0.08);
+  wheelCtx.lineTo(radius * 0.18, radius * 0.08);
+  wheelCtx.lineTo(radius * 0.18, radius * 0.55);
+  wheelCtx.lineTo(-radius * 0.18, radius * 0.55);
+  wheelCtx.lineTo(-radius * 0.18, radius * 0.08);
+  wheelCtx.lineTo(-radius * 0.46, radius * 0.08);
+  wheelCtx.closePath();
+  wheelCtx.fill();
+}
+
+function drawWheelGraphic(section: BonusWheelSection, size: number) {
+  const art = wheelArt(section);
+  if (art.kind === 'image') {
+    drawWheelTile(art.symbol, size);
+    if (art.badge) {
+      drawWheelBadge(art.badge, size);
+    }
+    return;
+  }
+  if (art.kind === 'mansion') {
+    drawWheelMansion(size);
+    return;
+  }
+  if (art.kind === 'coin') {
+    drawWheelCoin(art.tier, size);
+    return;
+  }
+  if (art.kind === 'free') {
+    drawWheelFree(size);
+    return;
+  }
+  drawWheelUpgrade(size);
 }
 
 export function drawWheel(sections: BonusWheelSection[], rotationDeg: number) {
+  lastWheel = { sections, rotationDeg };
   const { width, height } = wheelCanvas;
   wheelCtx.clearRect(0, 0, width, height);
   const cx = width / 2;
-  const cy = height - 8;
-  const radius = Math.min(width / 2 - 8, height - 16);
+  const cy = height - 56;
+  const radius = Math.min(width / 2 - 22, cy - 42);
+  const clipBottom = cy + 40;
   const slice = (Math.PI * 2) / sections.length;
   const start = ((rotationDeg - 90) * Math.PI) / 180;
 
   wheelCtx.save();
   wheelCtx.beginPath();
-  wheelCtx.rect(0, 0, width, cy);
+  wheelCtx.rect(0, 0, width, clipBottom);
   wheelCtx.clip();
 
+  wheelCtx.beginPath();
+  wheelCtx.arc(cx, cy, radius + 8, 0, Math.PI * 2);
+  wheelCtx.fillStyle = '#f6d36b';
+  wheelCtx.fill();
+  wheelCtx.beginPath();
+  wheelCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+  wheelCtx.fillStyle = '#1a120c';
+  wheelCtx.fill();
+
   sections.forEach((section, index) => {
+    const wedgeStart = start + index * slice;
+    const wedgeEnd = wedgeStart + slice;
+    const mid = wedgeStart + slice / 2;
     wheelCtx.beginPath();
     wheelCtx.moveTo(cx, cy);
-    wheelCtx.arc(cx, cy, radius, start + index * slice, start + (index + 1) * slice);
+    wheelCtx.arc(cx, cy, radius, wedgeStart, wedgeEnd);
     wheelCtx.closePath();
     wheelCtx.fillStyle = section.color;
     wheelCtx.fill();
-    wheelCtx.strokeStyle = '#111';
+    wheelCtx.save();
+    wheelCtx.clip();
+    const shade = wheelCtx.createRadialGradient(cx, cy, radius * 0.15, cx, cy, radius);
+    shade.addColorStop(0, 'rgba(0,0,0,0.2)');
+    shade.addColorStop(0.62, 'rgba(255,255,255,0)');
+    shade.addColorStop(1, 'rgba(255,255,255,0.28)');
+    wheelCtx.fillStyle = shade;
+    wheelCtx.fill();
+    wheelCtx.restore();
+    wheelCtx.lineWidth = 3;
+    wheelCtx.strokeStyle = '#1a120c';
     wheelCtx.stroke();
 
-    const mid = start + index * slice + slice / 2;
-    const textRadius = radius * 0.68;
+    const iconRadius = radius * 0.56;
+    const iconChord = 2 * iconRadius * Math.sin(slice / 2);
+    const iconSize = Math.min(radius * 0.3, iconChord * 0.84);
+    wheelCtx.save();
+    wheelCtx.translate(cx + Math.cos(mid) * iconRadius, cy + Math.sin(mid) * iconRadius);
+    wheelCtx.rotate(mid + Math.PI / 2);
+    drawWheelGraphic(section, iconSize);
+    wheelCtx.restore();
+
+    const textRadius = radius * 0.84;
+    const textChord = 2 * textRadius * Math.sin(slice / 2) * 0.86;
     wheelCtx.save();
     wheelCtx.translate(cx + Math.cos(mid) * textRadius, cy + Math.sin(mid) * textRadius);
     wheelCtx.rotate(mid + Math.PI / 2);
-    wheelCtx.fillStyle = '#fff';
-    wheelCtx.font = 'bold 11px system-ui';
-    wheelCtx.textAlign = 'center';
-    wheelCtx.textBaseline = 'middle';
-    drawWheelLabel(section.label, 2 * textRadius * Math.sin(slice / 2) * 0.9);
+    drawWheelLabel(section.label, textChord, Math.max(15, radius * 0.05));
     wheelCtx.restore();
+
+    const pegRadius = radius - 2;
+    const pegX = cx + Math.cos(wedgeStart) * pegRadius;
+    const pegY = cy + Math.sin(wedgeStart) * pegRadius;
+    if (pegY < cy - 4) {
+      wheelCtx.beginPath();
+      wheelCtx.arc(pegX, pegY, Math.max(5, radius * 0.018), 0, Math.PI * 2);
+      wheelCtx.fillStyle = '#f6d36b';
+      wheelCtx.fill();
+      wheelCtx.lineWidth = 2;
+      wheelCtx.strokeStyle = '#1a120c';
+      wheelCtx.stroke();
+    }
   });
+
+  wheelCtx.beginPath();
+  wheelCtx.arc(cx, cy, radius * 0.16, 0, Math.PI * 2);
+  wheelCtx.fillStyle = '#1a120c';
+  wheelCtx.fill();
+  wheelCtx.lineWidth = 6;
+  wheelCtx.strokeStyle = '#f6d36b';
+  wheelCtx.stroke();
+  const lip = clipBottom - cy;
+  const lipHalf = Math.sqrt(Math.max(0, radius * radius - lip * lip));
+  wheelCtx.fillStyle = '#f6d36b';
+  wheelCtx.fillRect(cx - lipHalf - 6, clipBottom - 8, lipHalf * 2 + 12, 10);
   wheelCtx.restore();
 
-  wheelCtx.fillStyle = '#e0a106';
+  wheelCtx.save();
+  wheelCtx.shadowColor = 'rgba(0,0,0,0.4)';
+  wheelCtx.shadowBlur = 8;
+  wheelCtx.shadowOffsetY = 2;
   wheelCtx.beginPath();
-  wheelCtx.moveTo(cx - 10, 4);
-  wheelCtx.lineTo(cx + 10, 4);
-  wheelCtx.lineTo(cx, 22);
+  wheelCtx.moveTo(cx - 18, 0);
+  wheelCtx.lineTo(cx + 18, 0);
+  wheelCtx.lineTo(cx, 36);
+  wheelCtx.closePath();
+  wheelCtx.fillStyle = '#f6d36b';
   wheelCtx.fill();
+  wheelCtx.shadowColor = 'transparent';
+  wheelCtx.lineWidth = 3;
+  wheelCtx.strokeStyle = '#1a120c';
+  wheelCtx.stroke();
+  wheelCtx.restore();
 }
 
 export function showPaytable() {
