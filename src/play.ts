@@ -1,4 +1,10 @@
-import { playReelStop, playWin, unlockAudio } from './audio';
+import {
+  playCrownFanfare,
+  playFlagFanfare,
+  playReelStop,
+  playWin,
+  unlockAudio,
+} from './audio';
 import { getBetTier, getBetTierFromWager } from './game/bets';
 import {
   BONUS_WHEEL_OUTCOMES,
@@ -347,6 +353,9 @@ function startHatBonusSession(
   );
   writeHatBonus(hatState, true);
   paintGrid(displayGrid, hatState.cells);
+  if (mode === 'hat' || mode === 'ultraHat') {
+    playCrownFanfare();
+  }
   return hatState;
 }
 
@@ -354,6 +363,7 @@ async function startMegaHatSession(betAmount: number, tall = false) {
   revealing = true;
   const mode: HatBonusMode = tall ? 'superHat' : 'megaHat';
   setStatus(`${describeHatBonusMode(mode)} — spinning...`);
+  playCrownFanfare();
   syncUi();
 
   try {
@@ -422,6 +432,7 @@ async function startBuzzSawSession(
   revealing = true;
   const triggerPositions = findBonusPositions(grid);
   setStatus(`${describeHatBonusMode(mode)} — waving...`);
+  playFlagFanfare();
   syncUi();
 
   try {
@@ -457,6 +468,7 @@ function waitForWheelClick(): Promise<void> {
     const button = document.querySelector('#wheel-spin') as HTMLButtonElement;
     const onClick = () => {
       button.removeEventListener('click', onClick);
+      unlockAudio();
       resolve();
     };
     button.addEventListener('click', onClick);
