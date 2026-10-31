@@ -20,7 +20,7 @@ const thunk = makeClip('thunk.mp3', 0.72);
 const FANFARE_VOLUME = 0.52;
 
 function makeAnthem(file: string) {
-  const audio = new Audio(`${BASE}sounds/${file}?v=proms`);
+  const audio = new Audio(`${BASE}sounds/${file}?v=snippet`);
   audio.preload = 'auto';
   audio.loop = false;
   return audio;
@@ -29,7 +29,8 @@ function makeAnthem(file: string) {
 const crownAnthem = makeAnthem('god-save-the-queen.mp3');
 const flagAnthem = makeAnthem('land-of-hope-and-glory.mp3');
 let activeAnthem: HTMLAudioElement | null = null;
-let anthemStarted = false;
+/** Bumped when a fanfare really starts, so a silent unlock does not pause it. */
+const anthemTicket = new WeakMap<HTMLAudioElement, number>();
 
 function playClip(clip: Clip) {
   const audio = clip.pool[clip.next];
@@ -49,16 +50,20 @@ function prime(audio: HTMLAudioElement, volume: number) {
   if (!audio.paused) {
     return;
   }
+  const ticket = anthemTicket.get(audio) ?? 0;
   audio.volume = 0;
   void audio
     .play()
     .then(() => {
-      if (anthemStarted && (audio === crownAnthem || audio === flagAnthem)) {
-        audio.volume = FANFARE_VOLUME;
+      if ((anthemTicket.get(audio) ?? 0) !== ticket) {
         return;
       }
       audio.pause();
-      audio.currentTime = 0;
+      try {
+        audio.currentTime = 0;
+      } catch {
+        // Metadata may still be loading.
+      }
       audio.volume = volume;
     })
     .catch(() => {
@@ -86,7 +91,7 @@ function playAnthem(audio: HTMLAudioElement) {
       // The other anthem may not have metadata yet.
     }
   }
-  anthemStarted = true;
+  anthemTicket.set(audio, (anthemTicket.get(audio) ?? 0) + 1);
   audio.volume = FANFARE_VOLUME;
   try {
     audio.currentTime = 0;
@@ -99,12 +104,12 @@ function playAnthem(audio: HTMLAudioElement) {
   });
 }
 
-/** Proms-style choir and orchestra: God Save the Queen. */
+/** Short God Save the Queen snippet when a crown bonus is won. */
 export function playCrownFanfare() {
   playAnthem(crownAnthem);
 }
 
-/** Proms-style choir and orchestra: Land of Hope and Glory. */
+/** Short Land of Hope and Glory snippet when a flag bonus is won. */
 export function playFlagFanfare() {
   playAnthem(flagAnthem);
 }

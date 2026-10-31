@@ -36,8 +36,8 @@ Suggested theme: construction site (hard hat, tools, vehicles) on a high-contras
 |------|------|
 | `chink.mp3` | Default reel stop |
 | `thunk.mp3` | Heavier reel stop when the column shows a bonus symbol or a crown |
-| `god-save-the-queen.mp3` | Proms-style choir and orchestra when a crown bonus starts |
-| `land-of-hope-and-glory.mp3` | Proms-style choir and orchestra when a flag bonus starts |
+| `god-save-the-queen.mp3` | Short snippet when a crown bonus is won |
+| `land-of-hope-and-glory.mp3` | Short snippet when a flag bonus is won |
 | `win.mp3` | Any cash award |
 | `spin.mp3` | Optional spin loop (unused in the prototype) |
 
