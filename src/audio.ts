@@ -20,7 +20,7 @@ const thunk = makeClip('thunk.mp3', 0.72);
 const FANFARE_VOLUME = 0.52;
 
 function makeAnthem(file: string) {
-  const audio = new Audio(`${BASE}sounds/${file}`);
+  const audio = new Audio(`${BASE}sounds/${file}?v=proms`);
   audio.preload = 'auto';
   audio.loop = false;
   return audio;
@@ -99,12 +99,12 @@ function playAnthem(audio: HTMLAudioElement) {
   });
 }
 
-/** Orchestral snippet of God Save the Queen. */
+/** Proms-style choir and orchestra: God Save the Queen. */
 export function playCrownFanfare() {
   playAnthem(crownAnthem);
 }
 
-/** Orchestral snippet of Land of Hope and Glory. */
+/** Proms-style choir and orchestra: Land of Hope and Glory. */
 export function playFlagFanfare() {
   playAnthem(flagAnthem);
 }
