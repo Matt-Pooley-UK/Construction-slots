@@ -84,7 +84,7 @@ const REEL_STAGGER_MS = 220;
 const canvas = document.querySelector('#reels') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
 const wheelCanvas = document.querySelector('#wheel-canvas') as HTMLCanvasElement;
-const wheelCtx = wheelCanvas.getContext('2d')!;
+let wheelCtx = wheelCanvas.getContext('2d')!;
 
 const BASE_CANVAS_WIDTH = 640;
 const BASE_CANVAS_HEIGHT = 410;
@@ -996,6 +996,25 @@ function drawWheelLabel(text: string, maxWidth: number, fontSize: number) {
   }
 
   wheelCtx.font = `bold ${size}px system-ui`;
+  const lines =
+    words.length < 2 || splitAt >= words.length
+      ? [text]
+      : [words.slice(0, splitAt).join(' '), words.slice(splitAt).join(' ')];
+  const gap = size * 0.58;
+  const widest = Math.max(...lines.map((line) => wheelCtx.measureText(line).width));
+  const blockHeight = lines.length === 1 ? size : gap * 2 + size * 0.2;
+  const padX = size * 0.38;
+  const padY = size * 0.28;
+  wheelCtx.fillStyle = 'rgba(26, 18, 12, 0.72)';
+  wheelCtx.beginPath();
+  wheelCtx.roundRect(
+    -widest / 2 - padX,
+    -blockHeight / 2 - padY,
+    widest + padX * 2,
+    blockHeight + padY * 2,
+    size * 0.28
+  );
+  wheelCtx.fill();
   wheelCtx.lineJoin = 'round';
   wheelCtx.lineWidth = Math.max(3, size * 0.14);
   wheelCtx.strokeStyle = '#1a120c';
@@ -1004,13 +1023,12 @@ function drawWheelLabel(text: string, maxWidth: number, fontSize: number) {
     wheelCtx.strokeText(line, 0, y);
     wheelCtx.fillText(line, 0, y);
   };
-  if (words.length < 2 || splitAt >= words.length) {
-    paint(text, 0);
+  if (lines.length === 1) {
+    paint(lines[0], 0);
     return;
   }
-  const gap = size * 0.58;
-  paint(words.slice(0, splitAt).join(' '), -gap);
-  paint(words.slice(splitAt).join(' '), gap);
+  paint(lines[0], -gap);
+  paint(lines[1], gap);
 }
 
 function wheelArt(section: BonusWheelSection):
@@ -1050,74 +1068,60 @@ function wheelArt(section: BonusWheelSection):
   }
 }
 
-function traceWheelIcon(size: number) {
-  wheelCtx.beginPath();
-  wheelCtx.roundRect(-size / 2, -size / 2, size, size, size * 0.16);
-}
-
 function drawWheelTile(symbol: SymbolId, size: number) {
   const img = images[symbol];
-  wheelCtx.save();
-  traceWheelIcon(size);
-  wheelCtx.clip();
+  const zoom = 1.22;
+  if (img && img.complete && img.naturalWidth > 0) {
+    const draw = size * zoom;
+    wheelCtx.save();
+    wheelCtx.beginPath();
+    wheelCtx.rect(-size / 2, -size / 2, size, size);
+    wheelCtx.clip();
+    wheelCtx.drawImage(img, -draw / 2, -draw / 2, draw, draw);
+    wheelCtx.restore();
+    return;
+  }
   wheelCtx.fillStyle = '#1a120c';
   wheelCtx.fillRect(-size / 2, -size / 2, size, size);
-  if (img && img.complete && img.naturalWidth > 0) {
-    wheelCtx.drawImage(img, -size / 2, -size / 2, size, size);
-  }
-  wheelCtx.restore();
-  wheelCtx.lineWidth = Math.max(2, size * 0.06);
-  wheelCtx.strokeStyle = '#f7f1e4';
-  traceWheelIcon(size);
-  wheelCtx.stroke();
 }
 
-function drawWheelBadge(label: string, size: number) {
-  const badge = size * 0.34;
-  const cx = size * 0.28;
-  const cy = -size * 0.28;
+function drawWheelBadge(label: string, diameter: number) {
+  const radius = diameter / 2;
   wheelCtx.beginPath();
-  wheelCtx.arc(cx, cy, badge * 0.55, 0, Math.PI * 2);
+  wheelCtx.arc(0, 0, radius, 0, Math.PI * 2);
   wheelCtx.fillStyle = '#1a120c';
   wheelCtx.fill();
-  wheelCtx.lineWidth = Math.max(2, size * 0.04);
+  wheelCtx.lineWidth = Math.max(2, diameter * 0.08);
   wheelCtx.strokeStyle = '#f6d36b';
   wheelCtx.stroke();
   wheelCtx.fillStyle = '#f7f1e4';
-  wheelCtx.font = `bold ${badge * 0.72}px system-ui`;
+  wheelCtx.font = `bold ${diameter * 0.52}px system-ui`;
   wheelCtx.textAlign = 'center';
   wheelCtx.textBaseline = 'middle';
-  wheelCtx.fillText(label, cx, cy);
+  wheelCtx.fillText(label, 0, 0);
 }
 
 function drawWheelMansion(size: number) {
-  const w = size * 0.86;
-  const h = size * 0.78;
+  const w = size;
+  const h = size;
   const left = -w / 2;
   const top = -h / 2;
-  wheelCtx.fillStyle = '#f3e2c4';
-  wheelCtx.fillRect(left + w * 0.22, top + h * 0.42, w * 0.56, h * 0.5);
-  wheelCtx.fillRect(left + w * 0.02, top + h * 0.3, w * 0.24, h * 0.62);
-  wheelCtx.fillRect(left + w * 0.74, top + h * 0.3, w * 0.24, h * 0.62);
   wheelCtx.fillStyle = '#7f1d1d';
-  const roof = (x: number, roofWidth: number, peak: number) => {
-    wheelCtx.beginPath();
-    wheelCtx.moveTo(x, top + h * 0.34);
-    wheelCtx.lineTo(x + roofWidth / 2, top + peak);
-    wheelCtx.lineTo(x + roofWidth, top + h * 0.34);
-    wheelCtx.closePath();
-    wheelCtx.fill();
-  };
-  roof(left, w * 0.28, h * 0.08);
-  roof(left + w * 0.72, w * 0.28, h * 0.08);
-  roof(left + w * 0.18, w * 0.64, h * 0.16);
+  wheelCtx.fillRect(left, top, w, h);
+  wheelCtx.fillStyle = '#f3e2c4';
+  wheelCtx.fillRect(left, top + h * 0.42, w, h * 0.58);
+  wheelCtx.fillStyle = '#7f1d1d';
+  wheelCtx.beginPath();
+  wheelCtx.moveTo(left - w * 0.04, top + h * 0.48);
+  wheelCtx.lineTo(0, top + h * 0.02);
+  wheelCtx.lineTo(left + w * 1.04, top + h * 0.48);
+  wheelCtx.closePath();
+  wheelCtx.fill();
   wheelCtx.fillStyle = '#3b2414';
-  wheelCtx.fillRect(left + w * 0.42, top + h * 0.62, w * 0.16, h * 0.3);
+  wheelCtx.fillRect(left + w * 0.34, top + h * 0.62, w * 0.32, h * 0.38);
   wheelCtx.fillStyle = '#fde68a';
-  wheelCtx.fillRect(left + w * 0.3, top + h * 0.52, w * 0.1, h * 0.12);
-  wheelCtx.fillRect(left + w * 0.6, top + h * 0.52, w * 0.1, h * 0.12);
-  wheelCtx.fillRect(left + w * 0.08, top + h * 0.46, w * 0.1, h * 0.12);
-  wheelCtx.fillRect(left + w * 0.82, top + h * 0.46, w * 0.1, h * 0.12);
+  wheelCtx.fillRect(left + w * 0.08, top + h * 0.56, w * 0.2, h * 0.22);
+  wheelCtx.fillRect(left + w * 0.72, top + h * 0.56, w * 0.2, h * 0.22);
 }
 
 function drawWheelStar(radius: number) {
@@ -1132,56 +1136,45 @@ function drawWheelStar(radius: number) {
 }
 
 function drawWheelCoin(tier: 'mini' | 'minor' | 'major', size: number) {
-  const radius = size * (tier === 'major' ? 0.48 : tier === 'minor' ? 0.44 : 0.4);
+  const radius = size * 0.5;
   const center = tier === 'major' ? '#6b21a8' : tier === 'minor' ? '#075985' : '#3f6212';
-  wheelCtx.beginPath();
-  wheelCtx.arc(0, 0, radius, 0, Math.PI * 2);
   wheelCtx.fillStyle = '#f8e7a2';
-  wheelCtx.fill();
-  wheelCtx.lineWidth = Math.max(3, size * 0.08);
-  wheelCtx.strokeStyle = '#6b3e09';
-  wheelCtx.stroke();
+  wheelCtx.fillRect(-size / 2, -size / 2, size, size);
   wheelCtx.beginPath();
-  wheelCtx.arc(0, 0, radius * 0.7, 0, Math.PI * 2);
+  wheelCtx.arc(0, 0, radius * 0.9, 0, Math.PI * 2);
   wheelCtx.fillStyle = center;
   wheelCtx.fill();
+  wheelCtx.lineWidth = Math.max(4, size * 0.045);
+  wheelCtx.strokeStyle = '#f8e7a2';
+  wheelCtx.stroke();
   wheelCtx.fillStyle = '#f8e7a2';
-  drawWheelStar(radius * (tier === 'mini' ? 0.34 : 0.42));
+  drawWheelStar(radius * 0.52);
   wheelCtx.fill();
 }
 
 function drawWheelFree(size: number) {
-  traceWheelIcon(size * 0.92);
   wheelCtx.fillStyle = '#f7f1e4';
-  wheelCtx.fill();
-  wheelCtx.lineWidth = Math.max(2, size * 0.05);
-  wheelCtx.strokeStyle = '#1a120c';
-  wheelCtx.stroke();
+  wheelCtx.fillRect(-size / 2, -size / 2, size, size);
   wheelCtx.fillStyle = '#1a120c';
-  wheelCtx.font = `bold ${size * 0.52}px system-ui`;
+  wheelCtx.font = `bold ${size * 0.92}px system-ui`;
   wheelCtx.textAlign = 'center';
   wheelCtx.textBaseline = 'middle';
-  wheelCtx.fillText('8', 0, size * 0.02);
+  wheelCtx.fillText('8', 0, size * 0.04);
 }
 
 function drawWheelUpgrade(size: number) {
-  const radius = size * 0.42;
-  wheelCtx.beginPath();
-  wheelCtx.arc(0, 0, radius, 0, Math.PI * 2);
+  const radius = size * 0.46;
   wheelCtx.fillStyle = '#f6d36b';
-  wheelCtx.fill();
-  wheelCtx.lineWidth = Math.max(2, size * 0.05);
-  wheelCtx.strokeStyle = '#1a120c';
-  wheelCtx.stroke();
+  wheelCtx.fillRect(-size / 2, -size / 2, size, size);
   wheelCtx.fillStyle = '#1a120c';
   wheelCtx.beginPath();
-  wheelCtx.moveTo(0, -radius * 0.62);
-  wheelCtx.lineTo(radius * 0.46, radius * 0.08);
-  wheelCtx.lineTo(radius * 0.18, radius * 0.08);
-  wheelCtx.lineTo(radius * 0.18, radius * 0.55);
-  wheelCtx.lineTo(-radius * 0.18, radius * 0.55);
-  wheelCtx.lineTo(-radius * 0.18, radius * 0.08);
-  wheelCtx.lineTo(-radius * 0.46, radius * 0.08);
+  wheelCtx.moveTo(0, -radius);
+  wheelCtx.lineTo(radius * 0.72, -radius * 0.05);
+  wheelCtx.lineTo(radius * 0.3, -radius * 0.05);
+  wheelCtx.lineTo(radius * 0.3, radius);
+  wheelCtx.lineTo(-radius * 0.3, radius);
+  wheelCtx.lineTo(-radius * 0.3, -radius * 0.05);
+  wheelCtx.lineTo(-radius * 0.72, -radius * 0.05);
   wheelCtx.closePath();
   wheelCtx.fill();
 }
@@ -1190,9 +1183,6 @@ function drawWheelGraphic(section: BonusWheelSection, size: number) {
   const art = wheelArt(section);
   if (art.kind === 'image') {
     drawWheelTile(art.symbol, size);
-    if (art.badge) {
-      drawWheelBadge(art.badge, size);
-    }
     return;
   }
   if (art.kind === 'mansion') {
@@ -1210,21 +1200,162 @@ function drawWheelGraphic(section: BonusWheelSection, size: number) {
   drawWheelUpgrade(size);
 }
 
-export function drawWheel(sections: BonusWheelSection[], rotationDeg: number) {
-  lastWheel = { sections, rotationDeg };
-  const { width, height } = wheelCanvas;
-  wheelCtx.clearRect(0, 0, width, height);
+const WHEEL_WEDGE_STRIPS = 120;
+const graphicCache = new Map<string, HTMLCanvasElement>();
+let wheelFaceCache: { key: string; canvas: HTMLCanvasElement } | null = null;
+
+function wheelGeometry() {
+  const width = wheelCanvas.width;
+  const height = wheelCanvas.height;
   const cx = width / 2;
   const cy = height - 56;
   const radius = Math.min(width / 2 - 22, cy - 42);
   const clipBottom = cy + 40;
-  const slice = (Math.PI * 2) / sections.length;
-  const start = ((rotationDeg - 90) * Math.PI) / 180;
+  return { width, height, cx, cy, radius, clipBottom };
+}
 
+function graphicCacheKey(section: BonusWheelSection) {
+  const art = wheelArt(section);
+  if (art.kind === 'image') {
+    const img = images[art.symbol];
+    const ready = !!(img && img.complete && img.naturalWidth > 0);
+    return `image:${art.symbol}:${ready ? '1' : '0'}`;
+  }
+  if (art.kind === 'coin') {
+    return `coin:${art.tier}`;
+  }
+  return art.kind;
+}
+
+function sectionGraphic(section: BonusWheelSection) {
+  const key = graphicCacheKey(section);
+  const hit = graphicCache.get(key);
+  if (hit) {
+    return hit;
+  }
+  const size = 720;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const saved = wheelCtx;
+  wheelCtx = canvas.getContext('2d')!;
+  try {
+    wheelCtx.translate(size / 2, size / 2);
+    drawWheelGraphic(section, size);
+  } finally {
+    wheelCtx = saved;
+  }
+  graphicCache.set(key, canvas);
+  return canvas;
+}
+
+/** Draw a house that fills the wedge, with the roof toward the rim. */
+function paintMansionInWedge(
+  cx: number,
+  cy: number,
+  radius: number,
+  wedgeStart: number,
+  wedgeEnd: number
+) {
+  const mid = (wedgeStart + wedgeEnd) / 2;
+  const half = (wedgeEnd - wedgeStart) / 2;
+  const outer = radius * 0.98;
+  const inner = radius * 0.24;
+  const widthAt = (y: number) => Math.tan(half) * y;
+  const wallTop = inner + (outer - inner) * 0.7;
   wheelCtx.save();
   wheelCtx.beginPath();
-  wheelCtx.rect(0, 0, width, clipBottom);
+  wheelCtx.moveTo(cx, cy);
+  wheelCtx.arc(cx, cy, radius, wedgeStart, wedgeEnd);
+  wheelCtx.closePath();
   wheelCtx.clip();
+  wheelCtx.translate(cx, cy);
+  wheelCtx.rotate(mid - Math.PI / 2);
+  wheelCtx.fillStyle = '#7f1d1d';
+  wheelCtx.fillRect(-radius, 0, radius * 2, radius);
+  wheelCtx.fillStyle = '#f3e2c4';
+  wheelCtx.fillRect(-widthAt(wallTop), inner, widthAt(wallTop) * 2, wallTop - inner);
+  wheelCtx.fillStyle = '#7f1d1d';
+  const eave = widthAt(wallTop);
+  wheelCtx.beginPath();
+  wheelCtx.moveTo(-eave, wallTop);
+  wheelCtx.lineTo(0, outer);
+  wheelCtx.lineTo(eave, wallTop);
+  wheelCtx.closePath();
+  wheelCtx.fill();
+  const wallH = wallTop - inner;
+  wheelCtx.fillStyle = '#3b2414';
+  const doorHalf = widthAt(inner + wallH * 0.35) * 0.28;
+  wheelCtx.fillRect(-doorHalf, inner, doorHalf * 2, wallH * 0.58);
+  wheelCtx.fillStyle = '#fde68a';
+  const winY = inner + wallH * 0.48;
+  const winHalf = widthAt(winY);
+  const winW = winHalf * 0.42;
+  const winH = wallH * 0.28;
+  wheelCtx.fillRect(-winHalf * 0.82, winY, winW, winH);
+  wheelCtx.fillRect(winHalf * 0.82 - winW, winY, winW, winH);
+  wheelCtx.restore();
+}
+
+/** Stretch a square graphic so it covers the wedge from hub to rim. */
+function paintGraphicInWedge(
+  graphic: HTMLCanvasElement,
+  cx: number,
+  cy: number,
+  radius: number,
+  wedgeStart: number,
+  wedgeEnd: number
+) {
+  const strips = WHEEL_WEDGE_STRIPS;
+  const slice = wedgeEnd - wedgeStart;
+  const inner = radius * 0.17;
+  const outer = radius * 0.99;
+  wheelCtx.save();
+  wheelCtx.beginPath();
+  wheelCtx.moveTo(cx, cy);
+  wheelCtx.arc(cx, cy, radius, wedgeStart, wedgeEnd);
+  wheelCtx.closePath();
+  wheelCtx.clip();
+  wheelCtx.imageSmoothingEnabled = true;
+  for (let index = 0; index < strips; index++) {
+    const a0 = wedgeStart + slice * (index / strips);
+    const a1 = wedgeStart + slice * ((index + 1) / strips);
+    const angle = (a0 + a1) / 2;
+    const half = outer * Math.tan((a1 - a0) / 2) * 1.08;
+    const sx = Math.floor((index * graphic.width) / strips);
+    const sx2 = Math.floor(((index + 1) * graphic.width) / strips);
+    const sWidth = Math.max(1, sx2 - sx);
+    wheelCtx.save();
+    wheelCtx.beginPath();
+    wheelCtx.moveTo(cx, cy);
+    wheelCtx.arc(cx, cy, radius, a0, a1);
+    wheelCtx.closePath();
+    wheelCtx.clip();
+    wheelCtx.translate(cx, cy);
+    wheelCtx.rotate(angle - Math.PI / 2);
+    // +y points outward. Flip it so the top of the graphic sits on the rim.
+    wheelCtx.translate(0, outer);
+    wheelCtx.scale(1, -1);
+    wheelCtx.drawImage(
+      graphic,
+      sx,
+      0,
+      sWidth,
+      graphic.height,
+      -half,
+      0,
+      half * 2,
+      outer - inner
+    );
+    wheelCtx.restore();
+  }
+  wheelCtx.restore();
+}
+
+function paintWheelFace(sections: BonusWheelSection[]) {
+  const { cx, cy, radius } = wheelGeometry();
+  const slice = (Math.PI * 2) / sections.length;
+  const start = -Math.PI / 2;
 
   wheelCtx.beginPath();
   wheelCtx.arc(cx, cy, radius + 8, 0, Math.PI * 2);
@@ -1245,48 +1376,51 @@ export function drawWheel(sections: BonusWheelSection[], rotationDeg: number) {
     wheelCtx.closePath();
     wheelCtx.fillStyle = section.color;
     wheelCtx.fill();
-    wheelCtx.save();
-    wheelCtx.clip();
-    const shade = wheelCtx.createRadialGradient(cx, cy, radius * 0.15, cx, cy, radius);
-    shade.addColorStop(0, 'rgba(0,0,0,0.2)');
-    shade.addColorStop(0.62, 'rgba(255,255,255,0)');
-    shade.addColorStop(1, 'rgba(255,255,255,0.28)');
-    wheelCtx.fillStyle = shade;
-    wheelCtx.fill();
-    wheelCtx.restore();
+    if (wheelArt(section).kind === 'mansion') {
+      paintMansionInWedge(cx, cy, radius, wedgeStart, wedgeEnd);
+    } else {
+      paintGraphicInWedge(sectionGraphic(section), cx, cy, radius, wedgeStart, wedgeEnd);
+    }
+
+    wheelCtx.beginPath();
+    wheelCtx.moveTo(cx, cy);
+    wheelCtx.arc(cx, cy, radius, wedgeStart, wedgeEnd);
+    wheelCtx.closePath();
     wheelCtx.lineWidth = 3;
     wheelCtx.strokeStyle = '#1a120c';
     wheelCtx.stroke();
 
-    const iconRadius = radius * 0.56;
-    const iconChord = 2 * iconRadius * Math.sin(slice / 2);
-    const iconSize = Math.min(radius * 0.3, iconChord * 0.84);
-    wheelCtx.save();
-    wheelCtx.translate(cx + Math.cos(mid) * iconRadius, cy + Math.sin(mid) * iconRadius);
-    wheelCtx.rotate(mid + Math.PI / 2);
-    drawWheelGraphic(section, iconSize);
-    wheelCtx.restore();
+    const art = wheelArt(section);
+    if (art.kind === 'image' && art.badge) {
+      const badgeRadius = radius * 0.4;
+      wheelCtx.save();
+      wheelCtx.translate(
+        cx + Math.cos(mid) * badgeRadius,
+        cy + Math.sin(mid) * badgeRadius
+      );
+      wheelCtx.rotate(mid + Math.PI / 2);
+      drawWheelBadge(art.badge, radius * 0.11);
+      wheelCtx.restore();
+    }
 
-    const textRadius = radius * 0.84;
-    const textChord = 2 * textRadius * Math.sin(slice / 2) * 0.86;
+    const textRadius = radius * 0.82;
+    const textChord = 2 * textRadius * Math.sin(slice / 2) * 0.82;
     wheelCtx.save();
     wheelCtx.translate(cx + Math.cos(mid) * textRadius, cy + Math.sin(mid) * textRadius);
     wheelCtx.rotate(mid + Math.PI / 2);
-    drawWheelLabel(section.label, textChord, Math.max(15, radius * 0.05));
+    drawWheelLabel(section.label, textChord, Math.max(15, radius * 0.048));
     wheelCtx.restore();
 
     const pegRadius = radius - 2;
     const pegX = cx + Math.cos(wedgeStart) * pegRadius;
     const pegY = cy + Math.sin(wedgeStart) * pegRadius;
-    if (pegY < cy - 4) {
-      wheelCtx.beginPath();
-      wheelCtx.arc(pegX, pegY, Math.max(5, radius * 0.018), 0, Math.PI * 2);
-      wheelCtx.fillStyle = '#f6d36b';
-      wheelCtx.fill();
-      wheelCtx.lineWidth = 2;
-      wheelCtx.strokeStyle = '#1a120c';
-      wheelCtx.stroke();
-    }
+    wheelCtx.beginPath();
+    wheelCtx.arc(pegX, pegY, Math.max(5, radius * 0.018), 0, Math.PI * 2);
+    wheelCtx.fillStyle = '#f6d36b';
+    wheelCtx.fill();
+    wheelCtx.lineWidth = 2;
+    wheelCtx.strokeStyle = '#1a120c';
+    wheelCtx.stroke();
   });
 
   wheelCtx.beginPath();
@@ -1296,11 +1430,53 @@ export function drawWheel(sections: BonusWheelSection[], rotationDeg: number) {
   wheelCtx.lineWidth = 6;
   wheelCtx.strokeStyle = '#f6d36b';
   wheelCtx.stroke();
+}
+
+function cachedWheelFace(sections: BonusWheelSection[]) {
+  const geometry = wheelGeometry();
+  const key = [
+    geometry.width,
+    geometry.height,
+    geometry.radius,
+    ...sections.map((section) => `${section.id}:${section.label}:${graphicCacheKey(section)}`),
+  ].join('|');
+  if (wheelFaceCache?.key === key) {
+    return wheelFaceCache.canvas;
+  }
+  const face = document.createElement('canvas');
+  face.width = geometry.width;
+  face.height = Math.ceil(geometry.cy + geometry.radius + 24);
+  const saved = wheelCtx;
+  wheelCtx = face.getContext('2d')!;
+  try {
+    paintWheelFace(sections);
+  } finally {
+    wheelCtx = saved;
+  }
+  wheelFaceCache = { key, canvas: face };
+  return face;
+}
+
+export function drawWheel(sections: BonusWheelSection[], rotationDeg: number) {
+  lastWheel = { sections, rotationDeg };
+  const { width, height, cx, cy, radius, clipBottom } = wheelGeometry();
+  const face = cachedWheelFace(sections);
+  wheelCtx.clearRect(0, 0, width, height);
+
+  wheelCtx.save();
+  wheelCtx.beginPath();
+  wheelCtx.rect(0, 0, width, clipBottom);
+  wheelCtx.clip();
+  wheelCtx.translate(cx, cy);
+  wheelCtx.rotate((rotationDeg * Math.PI) / 180);
+  wheelCtx.translate(-cx, -cy);
+  wheelCtx.drawImage(face, 0, 0);
+  wheelCtx.restore();
+
   const lip = clipBottom - cy;
   const lipHalf = Math.sqrt(Math.max(0, radius * radius - lip * lip));
   wheelCtx.fillStyle = '#f6d36b';
   wheelCtx.fillRect(cx - lipHalf - 6, clipBottom - 8, lipHalf * 2 + 12, 10);
-  wheelCtx.restore();
 
   wheelCtx.save();
   wheelCtx.shadowColor = 'rgba(0,0,0,0.4)';
