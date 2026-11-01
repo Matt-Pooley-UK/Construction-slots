@@ -1305,6 +1305,44 @@ function paintMansionInWedge(
   wheelCtx.restore();
 }
 
+/**
+ * Fit the whole graphic into the outer cap the partial wheel actually shows,
+ * clipped to the wedge so the picture is not smeared down to the hub.
+ */
+function paintGraphicInVisibleCap(
+  graphic: HTMLCanvasElement,
+  cx: number,
+  cy: number,
+  radius: number,
+  wedgeStart: number,
+  wedgeEnd: number
+) {
+  const half = (wedgeEnd - wedgeStart) / 2;
+  const mid = (wedgeStart + wedgeEnd) / 2;
+  const { cy: originY, height } = wheelGeometry();
+  // Keep the picture above the gold lip that closes the partial wheel.
+  const yInner = originY - (Math.round(height / 2) - 36);
+  const yRim = radius * 0.995;
+  const xNeed = radius * Math.sin(half) * 1.04;
+  const reach = Math.max((yRim - yInner) / 2, xNeed);
+  const center = yInner + reach;
+
+  wheelCtx.save();
+  wheelCtx.beginPath();
+  wheelCtx.moveTo(cx, cy);
+  wheelCtx.arc(cx, cy, radius, wedgeStart, wedgeEnd);
+  wheelCtx.closePath();
+  wheelCtx.clip();
+  wheelCtx.imageSmoothingEnabled = true;
+  wheelCtx.imageSmoothingQuality = 'high';
+  wheelCtx.translate(cx, cy);
+  wheelCtx.rotate(mid - Math.PI / 2);
+  wheelCtx.translate(0, center);
+  wheelCtx.scale(1, -1);
+  wheelCtx.drawImage(graphic, -reach, -reach, reach * 2, reach * 2);
+  wheelCtx.restore();
+}
+
 /** Stretch a square graphic so it covers the wedge from hub to rim. */
 function paintGraphicInWedge(
   graphic: HTMLCanvasElement,
@@ -1364,6 +1402,7 @@ function paintWheelFace(sections: BonusWheelSection[]) {
   const { cx, cy, radius } = wheelGeometry();
   const slice = (Math.PI * 2) / sections.length;
   const start = -Math.PI / 2;
+  const topHalf = showsTopHalf(sections);
 
   wheelCtx.beginPath();
   wheelCtx.arc(cx, cy, radius + 8, 0, Math.PI * 2);
@@ -1384,7 +1423,16 @@ function paintWheelFace(sections: BonusWheelSection[]) {
     wheelCtx.closePath();
     wheelCtx.fillStyle = section.color;
     wheelCtx.fill();
-    if (wheelArt(section).kind === 'mansion') {
+    if (topHalf) {
+      paintGraphicInVisibleCap(
+        sectionGraphic(section),
+        cx,
+        cy,
+        radius,
+        wedgeStart,
+        wedgeEnd
+      );
+    } else if (wheelArt(section).kind === 'mansion') {
       paintMansionInWedge(cx, cy, radius, wedgeStart, wedgeEnd);
     } else {
       paintGraphicInWedge(sectionGraphic(section), cx, cy, radius, wedgeStart, wedgeEnd);
@@ -1411,12 +1459,12 @@ function paintWheelFace(sections: BonusWheelSection[]) {
       wheelCtx.restore();
     }
 
-    const textRadius = radius * 0.82;
-    const textChord = 2 * textRadius * Math.sin(slice / 2) * 0.82;
+    const textRadius = radius * (topHalf ? 0.9 : 0.82);
+    const textChord = 2 * textRadius * Math.sin(slice / 2) * (topHalf ? 0.76 : 0.82);
     wheelCtx.save();
     wheelCtx.translate(cx + Math.cos(mid) * textRadius, cy + Math.sin(mid) * textRadius);
     wheelCtx.rotate(mid + Math.PI / 2);
-    drawWheelLabel(section.label, textChord, Math.max(15, radius * 0.048));
+    drawWheelLabel(section.label, textChord, Math.max(14, radius * (topHalf ? 0.042 : 0.048)));
     wheelCtx.restore();
 
     const pegRadius = radius - 2;
@@ -1446,6 +1494,7 @@ function cachedWheelFace(sections: BonusWheelSection[]) {
     geometry.width,
     geometry.height,
     geometry.radius,
+    showsTopHalf(sections) ? 'cap' : 'full',
     ...sections.map((section) => `${section.id}:${section.label}:${graphicCacheKey(section)}`),
   ].join('|');
   if (wheelFaceCache?.key === key) {
