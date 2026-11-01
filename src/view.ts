@@ -1204,14 +1204,22 @@ const WHEEL_WEDGE_STRIPS = 120;
 const graphicCache = new Map<string, HTMLCanvasElement>();
 let wheelFaceCache: { key: string; canvas: HTMLCanvasElement } | null = null;
 
+const WHEEL_WIDTH = 800;
+const WHEEL_HEIGHT = 500;
+
 function wheelGeometry() {
-  const width = wheelCanvas.width;
-  const height = wheelCanvas.height;
+  const width = WHEEL_WIDTH;
+  const height = WHEEL_HEIGHT;
   const cx = width / 2;
   const cy = height - 56;
   const radius = Math.min(width / 2 - 22, cy - 42);
   const clipBottom = cy + 40;
   return { width, height, cx, cy, radius, clipBottom };
+}
+
+/** The 14-wedge bonus wheel is cropped to the top half of the semicircle. */
+function showsTopHalf(sections: BonusWheelSection[]) {
+  return sections.length > 8;
 }
 
 function graphicCacheKey(section: BonusWheelSection) {
@@ -1460,12 +1468,18 @@ function cachedWheelFace(sections: BonusWheelSection[]) {
 export function drawWheel(sections: BonusWheelSection[], rotationDeg: number) {
   lastWheel = { sections, rotationDeg };
   const { width, height, cx, cy, radius, clipBottom } = wheelGeometry();
+  const topHalf = showsTopHalf(sections);
+  const viewHeight = topHalf ? Math.round(height / 2) : height;
+  if (wheelCanvas.width !== width || wheelCanvas.height !== viewHeight) {
+    wheelCanvas.width = width;
+    wheelCanvas.height = viewHeight;
+  }
   const face = cachedWheelFace(sections);
-  wheelCtx.clearRect(0, 0, width, height);
+  wheelCtx.clearRect(0, 0, width, viewHeight);
 
   wheelCtx.save();
   wheelCtx.beginPath();
-  wheelCtx.rect(0, 0, width, clipBottom);
+  wheelCtx.rect(0, 0, width, topHalf ? viewHeight : clipBottom);
   wheelCtx.clip();
   wheelCtx.translate(cx, cy);
   wheelCtx.rotate((rotationDeg * Math.PI) / 180);
@@ -1473,10 +1487,11 @@ export function drawWheel(sections: BonusWheelSection[], rotationDeg: number) {
   wheelCtx.drawImage(face, 0, 0);
   wheelCtx.restore();
 
-  const lip = clipBottom - cy;
+  const lipY = topHalf ? viewHeight : clipBottom;
+  const lip = lipY - cy;
   const lipHalf = Math.sqrt(Math.max(0, radius * radius - lip * lip));
   wheelCtx.fillStyle = '#f6d36b';
-  wheelCtx.fillRect(cx - lipHalf - 6, clipBottom - 8, lipHalf * 2 + 12, 10);
+  wheelCtx.fillRect(cx - lipHalf - 6, lipY - 10, lipHalf * 2 + 12, 12);
 
   wheelCtx.save();
   wheelCtx.shadowColor = 'rgba(0,0,0,0.4)';
