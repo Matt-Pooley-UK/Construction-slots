@@ -107,7 +107,9 @@ function windows(
 export function createPalaceSvg(): SVGSVGElement {
   const svg = document.createElementNS(NS, 'svg') as SVGSVGElement;
   svg.setAttribute('viewBox', '0 0 1200 800');
-  svg.setAttribute('preserveAspectRatio', 'xMidYMax meet');
+  // slice: fills the full game-area width at every viewport size; some sky
+  // may be cropped vertically but the palace facade always spans full width.
+  svg.setAttribute('preserveAspectRatio', 'xMidYMax slice');
   svg.setAttribute('aria-hidden', 'true');
 
   // ── Y levels ──────────────────────────────────────────────────────
@@ -134,10 +136,10 @@ export function createPalaceSvg(): SVGSVGElement {
 
   // ── SKY ──────────────────────────────────────────────────────────
   addTo(svg,
-    r(0, 0, 1200, 800, '#06101E'),
-    r(0, 0, 1200, 420, '#0C1A30', { opacity: '0.95' }),
-    r(0, 0, 1200, 220, '#12213A', { opacity: '0.7' }),
-    r(0, 0, 1200, 130, '#182C46', { opacity: '0.5' }),
+    r(0, 0, 1200, 800, '#0A1830'),  // mid-night royal blue base
+    r(0, 0, 1200, 420, '#0F2040', { opacity: '0.9' }),
+    r(0, 0, 1200, 220, '#162848', { opacity: '0.6' }),
+    r(0, 0, 1200, 130, '#1E3458', { opacity: '0.4' }),
   );
 
   // Stars
