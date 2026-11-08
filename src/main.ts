@@ -1,4 +1,5 @@
 import css from './style.css?inline';
+import { insertPalaceBackground } from './palaceBackground';
 import { SIMULATION_SPIN_COUNT, SIMULATION_SPIN_COUNT_LARGE } from './game/simulate';
 import {
   setBetMultiplier,
@@ -19,6 +20,8 @@ import {
 const style = document.createElement('style');
 style.textContent = css;
 document.head.appendChild(style);
+
+insertPalaceBackground();
 
 loadSymbolImages();
 initPlay();
