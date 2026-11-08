@@ -25,8 +25,12 @@ html, body {
 .game-area {
   position: relative;
   overflow: hidden;
-  /* Ensure the area is tall enough to show the palace facade */
-  min-height: min(700px, 90vh);
+  /* Must be tall enough for the palace to read.
+     With xMidYMax slice the palace fills full width; height governs
+     how much of the sky is visible above the building. */
+  min-height: min(680px, 88vh);
+  /* Solid floor matches the forecourt colour so the SVG edge is invisible */
+  background: #4E4030;
 }
 
 .palace-bg {
@@ -34,9 +38,6 @@ html, body {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  /* Fade to the body background at the bottom so the edge doesn't clip hard */
-  -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
-  mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
 }
 
 .palace-bg svg {
