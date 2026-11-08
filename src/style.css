@@ -18,8 +18,40 @@ html, body {
   font-family: system-ui, sans-serif;
 }
 
+/* ── Palace background wrapper ─────────────────────────────────────
+   The palace SVG sits inside .game-area and covers the header + reels
+   + controls. The #test frame is outside .game-area so it is unaffected.
+──────────────────────────────────────────────────────────────────── */
+.game-area {
+  position: relative;
+  overflow: hidden;
+  /* Ensure the area is tall enough to show the palace facade */
+  min-height: min(700px, 90vh);
+}
+
+.palace-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* Fade to the body background at the bottom so the edge doesn't clip hard */
+  -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+}
+
+.palace-bg svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Bring header and layout above the palace layer */
 .top {
+  position: relative;
+  z-index: 1;
   padding: 16px 20px 8px;
+  /* Keep title readable over the sky */
+  text-shadow: 0 2px 8px rgba(0,0,0,0.9);
 }
 
 h1 {
@@ -40,6 +72,8 @@ h1 {
   gap: 16px;
   padding: 8px 16px 24px;
   align-items: start;
+  position: relative;
+  z-index: 1;
 }
 
 .stage {
@@ -53,7 +87,9 @@ h1 {
   display: block;
   margin-inline: auto;
   background: #111;
-  border: 2px solid var(--line);
+  border: 3px solid var(--accent);
+  border-radius: 4px;
+  box-shadow: 0 0 32px rgba(0,0,0,0.8), 0 0 0 1px rgba(224,161,6,0.3);
 }
 
 .status {
@@ -67,6 +103,12 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: rgba(10, 8, 4, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .meters {

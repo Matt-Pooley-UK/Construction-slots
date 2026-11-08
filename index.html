@@ -8,15 +8,18 @@
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>
-    <header class="top">
-      <div>
-        <h1>Construction Slots</h1>
-        <p class="disclaimer">
-          Free entertainment game. No real money. Wins are credits only and
-          have no cash value.
-        </p>
-      </div>
-    </header>
+    <div class="game-area">
+      <div id="palace-bg" class="palace-bg" aria-hidden="true"></div>
+
+      <header class="top">
+        <div>
+          <h1>Construction Slots</h1>
+          <p class="disclaimer">
+            Free entertainment game. No real money. Wins are credits only and
+            have no cash value.
+          </p>
+        </div>
+      </header>
 
     <main class="layout">
       <section class="stage">
@@ -52,6 +55,7 @@
         <p id="session" class="session"></p>
       </aside>
     </main>
+    </div><!-- /.game-area -->
 
     <div id="wheel" class="overlay hidden">
       <div class="overlay-card wheel-card">
